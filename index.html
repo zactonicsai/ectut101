@@ -1,305 +1,1848 @@
-Here’s a hands-on intro to Elasticsearch that starts with loading data, then explains indexes, mappings, shards, and why those choices matter for search quality and performance.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engineering Walkthrough · Elasticsearch Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500;600&display=swap" rel="stylesheet">
 
-## 1) What Elasticsearch is doing for you
-
-Elasticsearch stores JSON documents in an **index**. An index has three core parts: **documents**, **mappings**, and **settings**. Mappings define how fields are interpreted, such as text, keyword, date, or numeric. Settings include operational choices like shard and replica counts. Search quality depends heavily on those choices because Elasticsearch builds Lucene structures from them when it indexes your data. ([Elastic][1])
-
-A good mental model is this: **load JSON documents → Elasticsearch analyzes fields → data is written to primary shards → replicas copy that data → searches fan out across shards and merge results back together**. Writes go to a primary shard first, then replicas are updated. Searches run across shard copies, which is why shard and replica design affects both indexing and query performance. ([Elastic][2])
-
-## 2) The first things to learn before loading data
-
-Before you index anything, decide three things:
-
-**First, what is a document?**
-A document should represent one searchable thing: a product, invoice, log event, article, or customer record.
-
-**Second, what fields need exact matching versus full-text search?**
-For example:
-
-* `title` or `description` usually need full-text search
-* `status`, `category`, `email`, and IDs usually need exact match/filtering
-
-**Third, how much data and traffic do you expect?**
-That drives shard and replica decisions. Elasticsearch physically stores an index as shards. Primary shards hold the source data; replica shards copy primaries for fault tolerance and more read capacity. ([Elastic][1])
-
-## 3) Step-by-step: create your first index
-
-Create an index explicitly instead of relying on auto-created mappings. That gives you predictable search behavior and avoids bad type guesses. The create index API lets you define settings, mappings, and aliases up front. ([Elastic][3])
-
-Example:
-
-```bash
-curl -X PUT "http://localhost:9200/books" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "settings": {
-      "number_of_shards": 1,
-      "number_of_replicas": 1
-    },
-    "mappings": {
-      "properties": {
-        "title":       { "type": "text" },
-        "author":      { "type": "keyword" },
-        "published":   { "type": "date" },
-        "price":       { "type": "float" },
-        "category":    { "type": "keyword" },
-        "description": { "type": "text" }
-      }
-    }
-  }'
-```
-
-Why this matters:
-
-* `text` fields are analyzed for full-text search
-* `keyword` fields are not analyzed, so they work well for filters, sorting, and aggregations
-* numeric and date fields support range queries efficiently
-
-Those field choices directly shape how users can search later. ([Elastic][3])
-
-## 4) Load a few documents
-
-Now index a few JSON documents.
-
-```bash
-curl -X POST "http://localhost:9200/books/_doc/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Learning Elasticsearch",
-    "author": "Jane Smith",
-    "published": "2025-01-15",
-    "price": 39.99,
-    "category": "search",
-    "description": "A practical guide to indexing and searching documents."
-  }'
-
-curl -X POST "http://localhost:9200/books/_doc/2" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Distributed Search Systems",
-    "author": "John Carter",
-    "published": "2024-11-02",
-    "price": 49.50,
-    "category": "architecture",
-    "description": "Explains shards, replicas, and query execution."
-  }'
-```
-
-When you index a document, Elasticsearch routes it to a shard, usually based on the document ID. The write goes to the primary shard first, then the replicas. That write path is why shard count and routing affect indexing scale. ([Elastic][2])
-
-## 5) Load data the right way: use Bulk for real ingestion
-
-For anything beyond a few test records, use the **Bulk API**. Elastic’s docs recommend it because batching reduces per-request overhead and significantly improves indexing speed. ([Elastic][4])
-
-Example:
-
-```bash
-curl -X POST "http://localhost:9200/books/_bulk" \
-  -H "Content-Type: application/x-ndjson" \
-  -d '
-{ "index": { "_id": "3" } }
-{ "title": "Lucene in Practice", "author": "A. Brown", "published": "2023-06-10", "price": 44.00, "category": "search", "description": "Covers indexing internals and relevance." }
-{ "index": { "_id": "4" } }
-{ "title": "Modern Data Platforms", "author": "R. Adams", "published": "2025-03-05", "price": 55.00, "category": "data", "description": "How search engines fit modern analytics platforms." }
-'
-```
-
-Best practice:
-
-* use Bulk for large loads
-* batch in reasonable sizes
-* monitor failures per item, not just HTTP 200
-* avoid one-document-per-request ingestion when throughput matters ([Elastic][4])
-
-## 6) Search the data
-
-Now run a simple full-text search:
-
-```bash
-curl -X GET "http://localhost:9200/books/_search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": {
-      "match": {
-        "description": "indexing search"
-      }
-    }
-  }'
-```
-
-A `match` query works well on `text` fields because Elasticsearch analyzes both the stored text and the query text. That is the connection between mappings and search behavior: if you mapped a field incorrectly, searches may feel “wrong” even though Elasticsearch is technically working. ([Elastic][1])
-
-Now try an exact filter:
-
-```bash
-curl -X GET "http://localhost:9200/books/_search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": {
-      "term": {
-        "category": "search"
-      }
-    }
-  }'
-```
-
-This works because `category` is a `keyword` field. If it had been `text`, Elasticsearch would analyze it, which is usually not what you want for exact filters. ([Elastic][1])
-
-## 7) Shards and replicas, simply explained
-
-A **primary shard** is one partition of your index. A **replica shard** is a copy of a primary. Each document belongs to one primary shard, and replicas provide redundancy and extra search capacity. Replicas improve read scalability because searches can run against shard copies, and they improve resilience because data still exists if a node fails. ([Elastic][5])
-
-The practical effect is:
-
-* **more primary shards** can help distribute indexing and storage
-* **too many primary shards** create overhead and can hurt performance
-* **more replicas** improve fault tolerance and read throughput
-* **too many replicas** consume more disk and write resources because every write must be copied ([Elastic][5])
-
-## 8) Good beginner shard advice
-
-For a small app or local learning project, start with:
-
-```json
-{
-  "number_of_shards": 1,
-  "number_of_replicas": 1
-}
-```
-
-That is simple and usually enough to learn with. Don’t start by over-sharding. Small clusters often run worse with too many shards because every shard has overhead. Elastic’s guidance around index fundamentals and shard architecture supports choosing shard counts deliberately rather than “more is better.” ([Elastic][1])
-
-A simple rule for beginners:
-
-* one node in local dev: `1 shard, 0 replicas` is often practical
-* two or more nodes in non-prod/prod: start small, then scale based on data size, throughput, and query load
-
-Replica count is dynamic, but primary shard count is effectively a design-time decision for an index, so think harder about primaries up front. ([Elastic][6])
-
-## 9) Why shard count affects searching
-
-When you run a search, Elasticsearch fans the query out to relevant shards, then merges results. That means every shard adds some coordination cost. Too many small shards can make searches slower because there are more shard-level operations to manage. Too few shards can bottleneck large datasets or indexing volume. The goal is balance. ([Elastic][7])
-
-So shard design is not just a storage concern. It directly affects:
-
-* indexing throughput
-* recovery time
-* cluster memory/metadata overhead
-* search latency
-* scaling behavior ([Elastic][5])
-
-## 10) Mapping best practices that improve search
-
-A lot of search problems are really mapping problems.
-
-Good defaults:
-
-* use `text` for human language content you want to search
-* use `keyword` for exact values, filters, joins by ID, sorting, and aggregations
-* use `date`, `integer`, `float`, and `boolean` explicitly
-* avoid letting dynamic mapping guess important field types in production unless you truly trust the input shape ([Elastic][1])
-
-Example of a common pattern:
-
-```json
-"product_name": {
-  "type": "text",
-  "fields": {
-    "raw": {
-      "type": "keyword"
-    }
+<style>
+  :root {
+    --blue-10:  #edf5ff;
+    --blue-20:  #d0e2ff;
+    --blue-30:  #a6c8ff;
+    --blue-40:  #78a9ff;
+    --blue-50:  #4589ff;
+    --blue-60:  #0f62fe;   /* IBM signature blue */
+    --blue-70:  #0043ce;
+    --blue-80:  #002d9c;
+    --blue-90:  #001d6c;
+    --blue-100: #001141;
+    --gray-10:  #f4f4f4;
+    --gray-20:  #e0e0e0;
+    --gray-30:  #c6c6c6;
+    --gray-50:  #8d8d8d;
+    --gray-70:  #525252;
+    --gray-80:  #393939;
+    --gray-90:  #262626;
+    --gray-100: #161616;
+    --white: #ffffff;
+    --support-error:   #da1e28;
+    --support-warning: #f1c21b;
+    --support-success: #24a148;
+    --support-info:    #0043ce;
   }
-}
-```
 
-Why this pattern is useful:
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--white);
+    color: var(--gray-100);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
 
-* `product_name` supports full-text search
-* `product_name.raw` supports exact filters and sorting
+  .serif { font-family: 'IBM Plex Serif', serif; }
+  .mono  { font-family: 'IBM Plex Mono', monospace; }
 
-That is often one of the best beginner design choices because it gives you both search and exact-match behavior from the same logical field. This aligns with Elastic’s mapping fundamentals and field-type guidance. ([Elastic][1])
+  /* IBM-style square boxes, no rounding anywhere */
+  .box { border: 1px solid var(--gray-20); background: var(--white); }
+  .box-blue { border: 1px solid var(--blue-60); background: var(--blue-10); }
+  .box-gray { background: var(--gray-10); border: 1px solid var(--gray-20); }
 
-## 11) Ingestion best practices
+  /* code blocks with line numbers */
+  .code-wrap { background: var(--gray-100); color: #f4f4f4; overflow-x: auto; }
+  .code-wrap .ln {
+    color: var(--gray-50);
+    display: inline-block;
+    width: 32px;
+    text-align: right;
+    padding-right: 12px;
+    user-select: none;
+    border-right: 1px solid #3a3a3a;
+    margin-right: 12px;
+  }
+  .code-wrap .highlight-line {
+    background: rgba(15, 98, 254, 0.18);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .code-wrap pre {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 16px;
+    margin: 0;
+  }
+  .c-key { color: #a6c8ff; }
+  .c-str { color: #a7f0ba; }
+  .c-num { color: #ff8389; }
+  .c-kw  { color: #78a9ff; font-weight: 500; }
+  .c-com { color: #8d8d8d; font-style: italic; }
+  .c-fn  { color: #ffd7d9; }
 
-When loading data, think about search at ingestion time, not after. Elastic’s ingestion guidance emphasizes preprocessing, enrichment, and choosing the right field types because these have an immediate impact on retrieval quality and performance. ([Elastic][8])
+  /* annotation callouts */
+  .annot {
+    border-left: 2px solid var(--blue-60);
+    padding: 16px 20px;
+    background: var(--blue-10);
+    margin: 12px 0;
+  }
+  .annot-why {
+    border-left: 2px solid var(--gray-70);
+    padding: 16px 20px;
+    background: var(--gray-10);
+    margin: 12px 0;
+  }
+  .annot-better {
+    border-left: 2px solid var(--support-success);
+    padding: 16px 20px;
+    background: #defbe6;
+    margin: 12px 0;
+  }
+  .annot-aws {
+    border-left: 2px solid var(--support-warning);
+    padding: 16px 20px;
+    background: #fcf4d6;
+    margin: 12px 0;
+  }
+  .annot-warn {
+    border-left: 2px solid var(--support-error);
+    padding: 16px 20px;
+    background: #fff1f1;
+    margin: 12px 0;
+  }
 
-Best practices:
+  .tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    display: inline-block;
+  }
+  .tag-what   { background: var(--blue-60);         color: white; }
+  .tag-why    { background: var(--gray-80);         color: white; }
+  .tag-better { background: var(--support-success); color: white; }
+  .tag-aws    { background: var(--gray-100);        color: #f1c21b; }
+  .tag-warn   { background: var(--support-error);   color: white; }
 
-* clean and normalize data before indexing
-* store dates in consistent formats
-* separate searchable text from exact lookup fields
-* use Bulk API for throughput
-* validate documents before indexing
-* avoid unnecessary fields because every field adds index/storage cost
-* choose IDs carefully, especially if updates/upserts are common ([Elastic][4])
+  /* nav */
+  .toc-link { color: var(--gray-70); transition: all 0.1s; padding: 8px 16px; display: block; border-left: 2px solid transparent; }
+  .toc-link:hover  { color: var(--blue-60); background: var(--blue-10); }
+  .toc-link.active { color: var(--blue-60); border-left-color: var(--blue-60); background: var(--blue-10); font-weight: 500; }
 
-## 12) A good first learning workflow
+  /* header link underlines IBM-style */
+  .u-link { color: var(--blue-60); border-bottom: 1px solid var(--blue-60); }
+  .u-link:hover { color: var(--blue-80); border-bottom-color: var(--blue-80); }
 
-Use this sequence when learning or building a POC:
+  /* big numerical section markers */
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--blue-60);
+    letter-spacing: 0.1em;
+  }
 
-1. Define one index for one document type.
-2. Create the index with explicit mappings and simple shard settings.
-3. Load 10–50 sample documents manually.
-4. Run `match`, `term`, and range queries.
-5. Switch to Bulk ingestion.
-6. Inspect search results and relevance.
-7. Adjust mappings before scaling data volume.
+  h1, h2, h3 { letter-spacing: -0.02em; }
 
-That workflow works because Elasticsearch’s behavior becomes much easier to understand when you see how mapping decisions change search results. It is better than loading a huge dataset first and debugging later. ([Elastic][1])
+  /* IBM-style horizontal rule */
+  .rule { border-top: 1px solid var(--gray-20); }
+  .rule-blue { border-top: 2px solid var(--blue-60); }
 
-## 13) What beginners usually get wrong
+  /* data table IBM-style */
+  table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.data th { text-align: left; background: var(--gray-10); padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--gray-20); font-size: 13px; }
+  table.data td { padding: 12px 16px; border-bottom: 1px solid var(--gray-20); vertical-align: top; }
+  table.data tr:hover td { background: var(--blue-10); }
 
-Common mistakes:
+  /* print / save */
+  @media print {
+    header, nav, .no-print { display: none !important; }
+    .code-wrap { background: white; color: black; border: 1px solid #ccc; }
+    .code-wrap pre { color: black; }
+  }
+</style>
+</head>
+<body>
 
-* treating every string field as `text`
-* using dynamic mapping for everything
-* creating too many shards
-* loading large datasets one document at a time
-* not separating exact-match fields from full-text fields
-* changing design after millions of documents are already indexed
+<!-- ============================================================ HEADER -->
+<header class="border-b border-gray-200 bg-white sticky top-0 z-30 no-print">
+  <div class="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <!-- IBM-style logo mark -->
+      <div class="flex gap-[3px]">
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+      </div>
+      <div>
+        <div class="text-xs mono uppercase tracking-widest" style="color:var(--gray-50);">Engineering Walkthrough</div>
+        <div class="text-lg font-semibold" style="color:var(--gray-100);">Elasticsearch Lab · Line-by-Line</div>
+      </div>
+    </div>
+    <div class="hidden md:flex items-center gap-6 text-sm mono">
+      <span style="color:var(--gray-50);">v1.0 · 2026-04-23</span>
+      <a href="#toc" class="u-link">Jump to contents</a>
+    </div>
+  </div>
+</header>
 
-These mistakes usually show up later as bad relevance, slow searches, slow indexing, or operational overhead. Elastic’s docs on index fundamentals, index settings, and bulk ingestion all point toward being explicit early. ([Elastic][1])
+<!-- ============================================================ HERO -->
+<section class="relative border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20 grid lg:grid-cols-12 gap-8">
+    <div class="lg:col-span-8">
+      <div class="section-num mb-6">00 / OVERVIEW</div>
+      <h1 class="serif text-5xl md:text-6xl font-medium leading-[1.05] tracking-tight">
+        A line-by-line engineering walkthrough of a two-node<br>
+        <span style="color:var(--blue-60);">Elasticsearch</span> learning lab &mdash; with the <span style="color:var(--blue-60);">AWS</span> translation for each piece.
+      </h1>
+      <p class="mt-8 text-lg max-w-3xl" style="color:var(--gray-70);">
+        This document walks through every file in the <span class="mono text-sm" style="background:var(--gray-10);padding:1px 6px;">es-lab</span> project
+        &mdash; Docker Compose, the FastAPI backend, the Go failover watchdog, and the Tailwind UI.
+        For each block of code we answer four questions: <strong>what</strong> it does,
+        <strong>why</strong> it&rsquo;s there, <strong>how</strong> to make it production-better,
+        and how it would look if you moved it to <strong>AWS</strong>.
+      </p>
+      <div class="mt-10 flex flex-wrap gap-3">
+        <span class="tag tag-what">WHAT · explains the code</span>
+        <span class="tag tag-why">WHY · the reasoning</span>
+        <span class="tag tag-better">BETTER · production hardening</span>
+        <span class="tag tag-aws">AWS · cloud translation</span>
+        <span class="tag tag-warn">WARNING · don&rsquo;t skip</span>
+      </div>
+    </div>
 
-## 14) A compact example you can remember
+    <aside class="lg:col-span-4">
+      <div class="box p-6">
+        <div class="text-xs mono uppercase tracking-widest mb-4" style="color:var(--gray-50);">You will learn</div>
+        <ul class="space-y-3 text-sm">
+          <li class="flex gap-3"><span class="mono" style="color:var(--blue-60);">01</span><span>Why <span class="mono text-xs" style="background:var(--gray-10);padding:1px 4px;">bootstrap.memory_lock</span> is mandatory and how the kernel backs it</span></li>
+          <li class="flex gap-3"><span class="mono" style="color:var(--blue-60);">02</span><span>How Elasticsearch discovers peers with <span class="mono text-xs" style="background:var(--gray-10);padding:1px 4px;">seed_hosts</span></span></li>
+          <li class="flex gap-3"><span class="mono" style="color:var(--blue-60);">03</span><span>Why the Python client takes a list of nodes, not a single URL</span></li>
+          <li class="flex gap-3"><span class="mono" style="color:var(--blue-60);">04</span><span>How a 60-line Go program detects failover in real time</span></li>
+          <li class="flex gap-3"><span class="mono" style="color:var(--blue-60);">05</span><span>What every ALB / Managed-OpenSearch translation looks like</span></li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</section>
 
-Think of an online store:
+<!-- ============================================================ TOC -->
+<section id="toc" class="border-b border-gray-200" style="background:var(--gray-10);">
+  <div class="max-w-[1400px] mx-auto px-8 py-16">
+    <div class="section-num mb-4">01 / TABLE OF CONTENTS</div>
+    <h2 class="serif text-4xl font-medium mb-10">Ten chapters, in reading order.</h2>
+    <div class="grid md:grid-cols-2 gap-px" style="background:var(--gray-20);">
+      <a href="#ch1"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start group">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 01</div>
+        <div class="text-lg font-semibold mt-1">The architecture at a glance</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">SVG diagram of every container and every flow</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch2"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 02</div>
+        <div class="text-lg font-semibold mt-1">docker-compose.yml, line by line</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">Volumes, healthchecks, networks, ulimits</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch3"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 03</div>
+        <div class="text-lg font-semibold mt-1">The Elasticsearch service block</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">Every env var explained</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch4"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 04</div>
+        <div class="text-lg font-semibold mt-1">FastAPI · main.py, walked</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">Client construction, CRUD, search</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch5"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 05</div>
+        <div class="text-lg font-semibold mt-1">Mapping construction &amp; why it matters</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">text vs keyword, the sub-field trick</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch6"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 06</div>
+        <div class="text-lg font-semibold mt-1">The search endpoint</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">bool, multi_match, highlight</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch7"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 07</div>
+        <div class="text-lg font-semibold mt-1">Go watchdog · main.go</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">State transitions and polling</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch8"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 08</div>
+        <div class="text-lg font-semibold mt-1">The failover drill, step by step</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">What happens in the cluster when a node dies</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch9"  class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 09</div>
+        <div class="text-lg font-semibold mt-1">On AWS · the full translation</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">Every container &rarr; its AWS counterpart</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+      <a href="#ch10" class="bg-white p-6 hover:bg-blue-50 transition-colors flex justify-between items-start">
+        <div><div class="mono text-xs" style="color:var(--blue-60);">CHAPTER 10</div>
+        <div class="text-lg font-semibold mt-1">Production checklist</div>
+        <div class="text-sm mt-2" style="color:var(--gray-70);">What must change before you ship</div></div>
+        <span class="text-2xl" style="color:var(--blue-60);">&rarr;</span></a>
+    </div>
+  </div>
+</section>
 
-* `name`: `text`
-* `brand`: `keyword`
-* `sku`: `keyword`
-* `price`: `float`
-* `created_at`: `date`
-* `description`: `text`
-* `in_stock`: `boolean`
+<!-- ============================================================ CH 1 -->
+<section id="ch1" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 01</div>
+    <h2 class="serif text-4xl font-medium mb-4">The architecture at a glance</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      Six containers on one Docker network. The UI talks to the API. The API talks to whichever Elasticsearch node answers first.
+      The Go watchdog watches both nodes. Kibana gives you a visual debugger.
+    </p>
 
-Why:
+    <!-- IBM-style architecture diagram -->
+    <div class="box p-10" style="background:var(--gray-10);">
+      <svg viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f62fe"/>
+          </marker>
+          <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#525252"/>
+          </marker>
+        </defs>
 
-* shoppers search words in `name` and `description`
-* your app filters exactly by `brand`, `sku`, and `in_stock`
-* price and date need range queries
+        <!-- outer "Docker network" boundary -->
+        <rect x="20" y="60" width="1060" height="540" fill="none" stroke="#a6c8ff" stroke-dasharray="4 4" stroke-width="1"/>
+        <text x="36" y="52" font-family="IBM Plex Mono" font-size="11" fill="#0043ce" letter-spacing="1">
+          DOCKER NETWORK: eslab
+        </text>
 
-That is the core “why” behind Elasticsearch design: **search fields and filter fields are not the same thing**, so they should not always be mapped the same way. ([Elastic][1])
+        <!-- USER -->
+        <g>
+          <rect x="40" y="260" width="130" height="80" fill="white" stroke="#161616" stroke-width="1.5"/>
+          <text x="105" y="295" text-anchor="middle" font-family="IBM Plex Sans" font-size="14" font-weight="600" fill="#161616">Browser</text>
+          <text x="105" y="315" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">:8080</text>
+        </g>
 
-## 15) Where to go next
+        <!-- UI -->
+        <g>
+          <rect x="230" y="160" width="180" height="100" fill="white" stroke="#0f62fe" stroke-width="2"/>
+          <rect x="230" y="160" width="180" height="22" fill="#0f62fe"/>
+          <text x="320" y="176" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">UI · nginx</text>
+          <text x="320" y="210" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">Tailwind HTML</text>
+          <text x="320" y="228" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">static · no build step</text>
+          <text x="320" y="246" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">container: ui</text>
+        </g>
 
-After this intro, the next topics to learn are:
+        <!-- API -->
+        <g>
+          <rect x="230" y="340" width="180" height="100" fill="white" stroke="#0f62fe" stroke-width="2"/>
+          <rect x="230" y="340" width="180" height="22" fill="#0f62fe"/>
+          <text x="320" y="356" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">API · FastAPI</text>
+          <text x="320" y="390" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">Python 3.12</text>
+          <text x="320" y="408" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">Pydantic models · uvicorn</text>
+          <text x="320" y="426" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">container: api · :8000</text>
+        </g>
 
-* analyzers and tokenization
-* aliases and rollover/index lifecycle
-* relevance tuning
-* aggregations
-* update and delete patterns
-* scaling shard strategy over time
+        <!-- ES01 -->
+        <g>
+          <rect x="500" y="170" width="200" height="120" fill="white" stroke="#161616" stroke-width="2"/>
+          <rect x="500" y="170" width="200" height="22" fill="#161616"/>
+          <text x="600" y="186" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">ELASTICSEARCH NODE</text>
+          <text x="600" y="215" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="700" fill="#0f62fe">es01</text>
+          <text x="600" y="233" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">master-eligible · data</text>
+          <!-- shard boxes -->
+          <rect x="520" y="248" width="34" height="24" fill="#0f62fe"/>
+          <text x="537" y="264" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">P0</text>
+          <rect x="560" y="248" width="34" height="24" fill="white" stroke="#0f62fe" stroke-width="1.5"/>
+          <text x="577" y="264" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0f62fe">R1</text>
+          <text x="600" y="285" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">volume: es01-data</text>
+        </g>
 
-Those build on the same foundation you just learned: document shape, mappings, settings, and shard layout. ([Elastic][1])
+        <!-- ES02 -->
+        <g>
+          <rect x="500" y="320" width="200" height="120" fill="white" stroke="#161616" stroke-width="2"/>
+          <rect x="500" y="320" width="200" height="22" fill="#161616"/>
+          <text x="600" y="336" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">ELASTICSEARCH NODE</text>
+          <text x="600" y="365" text-anchor="middle" font-family="IBM Plex Sans" font-size="15" font-weight="700" fill="#0f62fe">es02</text>
+          <text x="600" y="383" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">master-eligible · data</text>
+          <rect x="520" y="398" width="34" height="24" fill="white" stroke="#0f62fe" stroke-width="1.5"/>
+          <text x="537" y="414" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0f62fe">R0</text>
+          <rect x="560" y="398" width="34" height="24" fill="#0f62fe"/>
+          <text x="577" y="414" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">P1</text>
+          <text x="600" y="435" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">volume: es02-data</text>
+        </g>
 
-If you want, I can turn this into a full **HTML + Tailwind hands-on tutorial page** with curl examples, diagrams, popups, and a step-by-step lab.
+        <!-- transport link between ES -->
+        <line x1="600" y1="290" x2="600" y2="320" stroke="#525252" stroke-width="1" stroke-dasharray="3 2"/>
+        <text x="610" y="308" font-family="IBM Plex Mono" font-size="9" fill="#525252">:9300 transport</text>
 
-[1]: https://www.elastic.co/docs/manage-data/data-store/index-basics?utm_source=chatgpt.com "Index fundamentals | Elastic Docs"
-[2]: https://www.elastic.co/docs/deploy-manage/distributed-architecture/reading-and-writing-documents?utm_source=chatgpt.com "Reading and writing documents | Elastic Docs"
-[3]: https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-create?utm_source=chatgpt.com "Create an index | Elasticsearch API documentation"
-[4]: https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk?utm_source=chatgpt.com "Bulk index or delete documents | Elasticsearch API ..."
-[5]: https://www.elastic.co/docs/deploy-manage/distributed-architecture/clusters-nodes-shards?utm_source=chatgpt.com "Clusters, nodes, and shards"
-[6]: https://www.elastic.co/docs/reference/elasticsearch/index-settings/index-modules?utm_source=chatgpt.com "General index settings | Elasticsearch Reference"
-[7]: https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/8.19/api-reference.html?utm_source=chatgpt.com "API Reference | Elasticsearch JavaScript Client [8.19]"
-[8]: https://www.elastic.co/search-labs/jp/blog/elasticsearch-ingestion-tips?utm_source=chatgpt.com "3 ingestion tips to change your search game forever"
+        <!-- KIBANA -->
+        <g>
+          <rect x="780" y="160" width="170" height="100" fill="white" stroke="#525252" stroke-width="1.5"/>
+          <rect x="780" y="160" width="170" height="22" fill="#525252"/>
+          <text x="865" y="176" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">KIBANA</text>
+          <text x="865" y="210" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">Visual inspector</text>
+          <text x="865" y="228" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">Dev Tools · Discover</text>
+          <text x="865" y="246" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">:5601</text>
+        </g>
+
+        <!-- WATCHDOG -->
+        <g>
+          <rect x="780" y="350" width="170" height="100" fill="white" stroke="#da1e28" stroke-width="1.5"/>
+          <rect x="780" y="350" width="170" height="22" fill="#da1e28"/>
+          <text x="865" y="366" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white" letter-spacing="1">WATCHDOG · Go</text>
+          <text x="865" y="400" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">Polls every 3s</text>
+          <text x="865" y="418" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">Logs transitions</text>
+          <text x="865" y="436" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">stdlib-only</text>
+        </g>
+
+        <!-- VOLUMES -->
+        <g>
+          <rect x="500" y="490" width="95" height="60" fill="white" stroke="#525252" stroke-dasharray="2 2"/>
+          <text x="547" y="512" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">docker vol</text>
+          <text x="547" y="528" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#161616">es01-data</text>
+          <rect x="605" y="490" width="95" height="60" fill="white" stroke="#525252" stroke-dasharray="2 2"/>
+          <text x="652" y="512" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">docker vol</text>
+          <text x="652" y="528" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#161616">es02-data</text>
+        </g>
+
+        <!-- flows -->
+        <!-- browser -> UI -->
+        <line x1="170" y1="290" x2="228" y2="210" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="175" y="245" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">HTTP</text>
+        <!-- browser -> API (XHR) -->
+        <line x1="170" y1="310" x2="228" y2="390" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="175" y="365" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">fetch /api</text>
+        <!-- API -> es01 -->
+        <line x1="412" y1="380" x2="498" y2="230" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="412" y1="400" x2="498" y2="380" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="420" y="320" font-family="IBM Plex Mono" font-size="10" fill="#0f62fe">client.search()</text>
+        <!-- kibana -> es -->
+        <line x1="780" y1="215" x2="702" y2="215" stroke="#525252" stroke-width="1" marker-end="url(#arrow-gray)"/>
+        <!-- watchdog -> both es -->
+        <line x1="780" y1="390" x2="702" y2="240" stroke="#525252" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow-gray)"/>
+        <line x1="780" y1="410" x2="702" y2="390" stroke="#525252" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow-gray)"/>
+        <text x="710" y="470" font-family="IBM Plex Mono" font-size="10" fill="#525252">poll /_cluster/health</text>
+
+        <!-- volume mounts -->
+        <line x1="547" y1="488" x2="547" y2="441" stroke="#525252" stroke-width="1" stroke-dasharray="2 2"/>
+        <line x1="652" y1="488" x2="652" y2="441" stroke="#525252" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- legend -->
+        <g transform="translate(40, 560)">
+          <rect x="0" y="0" width="12" height="12" fill="#0f62fe"/>
+          <text x="20" y="10" font-family="IBM Plex Mono" font-size="11" fill="#161616">Primary shard</text>
+          <rect x="130" y="0" width="12" height="12" fill="white" stroke="#0f62fe" stroke-width="1.5"/>
+          <text x="150" y="10" font-family="IBM Plex Mono" font-size="11" fill="#161616">Replica shard</text>
+          <line x1="280" y1="6" x2="320" y2="6" stroke="#0f62fe" stroke-width="1.5"/>
+          <text x="328" y="10" font-family="IBM Plex Mono" font-size="11" fill="#161616">HTTP (client-facing)</text>
+          <line x1="480" y1="6" x2="520" y2="6" stroke="#525252" stroke-dasharray="3 2"/>
+          <text x="528" y="10" font-family="IBM Plex Mono" font-size="11" fill="#161616">Internal / transport</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- architecture key facts -->
+    <div class="grid md:grid-cols-3 gap-px mt-10" style="background:var(--gray-20);">
+      <div class="bg-white p-6">
+        <div class="section-num">01</div>
+        <div class="font-semibold mt-2">Single network</div>
+        <p class="text-sm mt-2" style="color:var(--gray-70);">Every container joins <span class="mono text-xs" style="background:var(--gray-10);padding:1px 4px;">eslab</span>. They reach each other by service name (<span class="mono text-xs" style="background:var(--gray-10);padding:1px 4px;">http://es01:9200</span>) &mdash; no IPs, no DNS config.</p>
+      </div>
+      <div class="bg-white p-6">
+        <div class="section-num">02</div>
+        <div class="font-semibold mt-2">Two ES nodes, equal role</div>
+        <p class="text-sm mt-2" style="color:var(--gray-70);">Both nodes are master-eligible AND data. That&rsquo;s fine for a lab; in production you split roles to isolate master election from data load.</p>
+      </div>
+      <div class="bg-white p-6">
+        <div class="section-num">03</div>
+        <div class="font-semibold mt-2">Shard layout</div>
+        <p class="text-sm mt-2" style="color:var(--gray-70);">2 primaries + 1 replica each &rArr; 4 shards total, two per node, every primary mirrored on the other node. Kill one, you lose zero data.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 2 -->
+<section id="ch2" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 02</div>
+    <h2 class="serif text-4xl font-medium mb-4">docker-compose.yml · line by line</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      The orchestration file. Every line here is a decision: about isolation, about data persistence, about how services find each other.
+    </p>
+
+    <!-- — 2.1 version & header — -->
+    <h3 class="text-2xl font-semibold mt-10 mb-6">2.1 &nbsp; File header &amp; version</h3>
+    <div class="code-wrap">
+<pre><span class="ln">01</span><span class="c-com"># =============================================================================</span>
+<span class="ln">02</span><span class="c-com"># Elasticsearch Learning Lab</span>
+<span class="ln">03</span><span class="c-com"># Two-node ES cluster + Kibana + FastAPI + Go watchdog + static UI</span>
+<span class="ln">04</span><span class="c-com"># =============================================================================</span>
+<span class="ln">05</span><span class="c-key">version</span>: <span class="c-str">"3.8"</span></pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2"><span class="mono text-sm">version: "3.8"</span> declares the Compose file schema. 3.8 is the last of the V3 line and supports healthchecks, long-form volumes, and the features we&rsquo;ll use below.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY</span>
+      <p class="mt-2">Compose V2 (the <span class="mono text-sm">docker compose</span> CLI, not the older <span class="mono text-sm">docker-compose</span>) technically doesn&rsquo;t need the <span class="mono text-sm">version</span> key anymore &mdash; it&rsquo;s ignored. But keeping it documents your intent and makes the file portable to older hosts.</p>
+    </div>
+    <div class="annot-better"><span class="tag tag-better">BETTER</span>
+      <p class="mt-2">In a real repo, replace every literal value (image tag, password, memory) with <span class="mono text-sm">${VAR:-default}</span> substitution and ship a <span class="mono text-sm">.env.example</span>. That lets CI, local dev, and prod all run from the same file with different env files.</p>
+    </div>
+
+    <!-- — 2.2 es01 service — -->
+    <h3 class="text-2xl font-semibold mt-12 mb-6">2.2 &nbsp; The first Elasticsearch node</h3>
+    <div class="code-wrap">
+<pre><span class="ln">06</span><span class="c-key">services</span>:
+<span class="ln">07</span>  <span class="c-key">es01</span>:
+<span class="ln">08</span>    <span class="c-key">image</span>: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+<span class="ln">09</span>    <span class="c-key">container_name</span>: es01
+<span class="ln">10</span>    <span class="c-key">environment</span>:
+<span class="ln">11</span>      - node.name=es01
+<span class="ln">12</span>      - cluster.name=lab-cluster
+<span class="ln">13</span>      - discovery.seed_hosts=es02
+<span class="ln">14</span>      - cluster.initial_master_nodes=es01,es02
+<span class="ln">15</span>      - bootstrap.memory_lock=true
+<span class="ln">16</span>      - xpack.security.enabled=false
+<span class="ln">17</span>      - <span class="c-str">"ES_JAVA_OPTS=-Xms512m -Xmx512m"</span></pre>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 08</span>
+        <p class="mt-2 text-sm">The official Elastic image from their registry. Pinning <span class="mono">8.13.4</span> (not <span class="mono">:latest</span>) means every teammate and every CI run gets bit-for-bit the same binary.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY pin?</span>
+        <p class="mt-2 text-sm">An ES minor upgrade can change default settings, deprecate APIs, or add new required configs. Never let a <span class="mono">latest</span> tag silently upgrade your lab between two runs of the same tutorial.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 11</span>
+        <p class="mt-2 text-sm"><span class="mono">node.name=es01</span> &mdash; the human-readable identifier this node reports to the cluster. Appears in <span class="mono">_cat/nodes</span> and in every log line.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY explicit?</span>
+        <p class="mt-2 text-sm">Without it ES auto-generates a random node name. Then when you&rsquo;re debugging a shard allocation issue you&rsquo;re staring at <span class="mono">VeV4vfLK</span> instead of <span class="mono">es01</span>. Always name nodes.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 12</span>
+        <p class="mt-2 text-sm"><span class="mono">cluster.name=lab-cluster</span> &mdash; the shared identifier. All nodes with the same name form one cluster.</p>
+      </div>
+      <div class="annot-warn"><span class="tag tag-warn">GOTCHA</span>
+        <p class="mt-2 text-sm">If two nodes disagree on <span class="mono">cluster.name</span>, they each think they&rsquo;re the only one alive. You&rsquo;ll see two single-node clusters with no errors in the log. Always grep <span class="mono">cluster.name</span> across all nodes when troubleshooting discovery.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 13</span>
+        <p class="mt-2 text-sm"><span class="mono">discovery.seed_hosts=es02</span> &mdash; a list of peers this node should try to contact at startup to find the rest of the cluster.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY just <span class="mono">es02</span>?</span>
+        <p class="mt-2 text-sm">Because Docker Compose gives every service a DNS entry matching the service name. Inside the <span class="mono">eslab</span> network, <span class="mono">es02</span> resolves to the es02 container&rsquo;s IP. No hardcoded IPs, no config updates when containers recycle.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 14</span>
+        <p class="mt-2 text-sm"><span class="mono">cluster.initial_master_nodes=es01,es02</span> &mdash; the bootstrapping seed. The very first time the cluster forms, exactly these nodes must vote to elect the first master.</p>
+      </div>
+      <div class="annot-warn"><span class="tag tag-warn">DO NOT skip</span>
+        <p class="mt-2 text-sm">Missing this on a fresh cluster = it never forms. You&rsquo;ll see endless <span class="mono">master not discovered yet</span> in logs. After the first successful bootstrap the setting is ignored, but you can&rsquo;t start without it the first time.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 15</span>
+        <p class="mt-2 text-sm"><span class="mono">bootstrap.memory_lock=true</span> &mdash; tells the JVM to lock its heap into physical RAM. The kernel is forbidden from swapping it to disk.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY critical</span>
+        <p class="mt-2 text-sm">If any part of the ES heap gets paged out, GC pauses spike from milliseconds to seconds. The cluster declares the node dead, shards reallocate, the flood of recovery traffic takes down other nodes. This is the classic &ldquo;death spiral.&rdquo;</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot-warn"><span class="tag tag-warn">WARNING · line 16</span>
+        <p class="mt-2 text-sm"><span class="mono">xpack.security.enabled=false</span> disables authentication, TLS, role-based access, audit logs &mdash; the entire security layer. <strong>Only acceptable on localhost learning labs.</strong></p>
+      </div>
+      <div class="annot-better"><span class="tag tag-better">BETTER · production</span>
+        <p class="mt-2 text-sm">Always true. Then mount TLS certs, set <span class="mono">ELASTIC_PASSWORD</span>, and configure TLS for both the HTTP and transport layers. See chapter 10 for the exact production block.</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 17</span>
+        <p class="mt-2 text-sm"><span class="mono">ES_JAVA_OPTS=-Xms512m -Xmx512m</span> &mdash; JVM minimum and maximum heap, both forced to 512 MB.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY Xms == Xmx</span>
+        <p class="mt-2 text-sm">If the JVM can resize the heap, every resize is a stop-the-world event. Freezing it at one size means fewer surprises. 512 MB is a laptop-sized lab value; production is 50% of host RAM up to <strong>31 GB</strong> (above that the JVM disables compressed pointers and you actually lose effective heap).</p>
+      </div>
+    </div>
+
+    <!-- — 2.3 ulimits & volume — -->
+    <h3 class="text-2xl font-semibold mt-12 mb-6">2.3 &nbsp; ulimits, volumes, ports, health</h3>
+    <div class="code-wrap">
+<pre><span class="ln">18</span>    <span class="c-key">ulimits</span>:
+<span class="ln">19</span>      <span class="c-key">memlock</span>: { soft: -1, hard: -1 }
+<span class="ln">20</span>      <span class="c-key">nofile</span>:  { soft: 65536, hard: 65536 }
+<span class="ln">21</span>    <span class="c-key">volumes</span>:
+<span class="ln">22</span>      - es01-data:/usr/share/elasticsearch/data
+<span class="ln">23</span>    <span class="c-key">ports</span>:
+<span class="ln">24</span>      - <span class="c-str">"9200:9200"</span>
+<span class="ln">25</span>    <span class="c-key">networks</span>: [eslab]
+<span class="ln">26</span>    <span class="c-key">healthcheck</span>:
+<span class="ln">27</span>      <span class="c-key">test</span>: [<span class="c-str">"CMD-SHELL"</span>, <span class="c-str">"curl -fs http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"</span>]
+<span class="ln">28</span>      <span class="c-key">interval</span>: 10s
+<span class="ln">29</span>      <span class="c-key">timeout</span>: 5s
+<span class="ln">30</span>      <span class="c-key">retries</span>: 12</pre>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · lines 18-20</span>
+      <p class="mt-2 text-sm"><span class="mono">memlock: -1</span> means &ldquo;unlimited.&rdquo; This is the companion to <span class="mono">bootstrap.memory_lock=true</span> &mdash; the JVM can <em>try</em> to lock memory, but without the kernel raising <span class="mono">RLIMIT_MEMLOCK</span> for the container, the lock call silently fails. Both settings are required, not one or the other.</p>
+      <p class="mt-2 text-sm"><span class="mono">nofile: 65536</span> lifts the max-open-files limit. Lucene (the library ES is built on) holds a file descriptor for every segment file. A busy index easily breaks the default 1024 limit.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 22</span>
+        <p class="mt-2 text-sm">Named volume <span class="mono">es01-data</span> mounted at <span class="mono">/usr/share/elasticsearch/data</span>. This is where ES writes every shard, every segment, every translog.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY named, not bind</span>
+        <p class="mt-2 text-sm">Named volumes are managed by Docker and survive container rebuilds. A bind mount (<span class="mono">./data:/usr/share/...</span>) drags your host filesystem quirks (permissions, SELinux, APFS slowness on macOS) into the container. ES is I/O-heavy &mdash; you want a real Docker volume.</p>
+      </div>
+    </div>
+
+    <div class="annot-aws"><span class="tag tag-aws">AWS EQUIVALENT</span>
+      <p class="mt-2 text-sm">On EKS this becomes a <span class="mono">PersistentVolumeClaim</span> backed by an <span class="mono">EBS gp3</span> volume, provisioned via the EBS CSI driver. On ECS Fargate it&rsquo;d be an EFS mount (though Fargate is generally a poor fit for stateful ES workloads). On AWS Managed OpenSearch the entire storage layer is opaque &mdash; you just declare volume size.</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 24</span>
+        <p class="mt-2 text-sm"><span class="mono">"9200:9200"</span> publishes the container&rsquo;s REST port to the host. You can <span class="mono">curl http://localhost:9200</span> from outside Docker.</p>
+      </div>
+      <div class="annot-warn"><span class="tag tag-warn">PRODUCTION</span>
+        <p class="mt-2 text-sm">Never publish 9200 from a production ES node. All client traffic should go through a load balancer or coordinating-only nodes. Nodes themselves communicate on port 9300 (the transport protocol) which should stay internal.</p>
+      </div>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · lines 26-30</span>
+      <p class="mt-2 text-sm">The healthcheck asks the node for its cluster status every 10 seconds. A node is "healthy" only when <span class="mono">/_cluster/health</span> returns <span class="mono">"status":"green"</span> or <span class="mono">"yellow"</span>.</p>
+      <p class="mt-2 text-sm">The API container depends on this &mdash; Compose waits for es01 to be healthy before starting the API.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY accept yellow?</span>
+      <p class="mt-2 text-sm">Yellow means "primaries are fine, some replicas are still initializing." That&rsquo;s a perfectly valid state to serve reads and writes. Requiring green would make the API wait forever on a fresh cluster that has no replicas assigned yet.</p>
+    </div>
+
+    <!-- — 2.4 volumes & networks — -->
+    <h3 class="text-2xl font-semibold mt-12 mb-6">2.4 &nbsp; Top-level volumes &amp; networks</h3>
+    <div class="code-wrap">
+<pre><span class="ln">85</span><span class="c-key">volumes</span>:
+<span class="ln">86</span>  <span class="c-key">es01-data</span>:
+<span class="ln">87</span>  <span class="c-key">es02-data</span>:
+<span class="ln">88</span>
+<span class="ln">89</span><span class="c-key">networks</span>:
+<span class="ln">90</span>  <span class="c-key">eslab</span>:
+<span class="ln">91</span>    <span class="c-key">driver</span>: bridge</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">The top-level <span class="mono">volumes:</span> block declares the named volumes; each is created the first time Compose runs. The <span class="mono">networks:</span> block declares a user-defined bridge network.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY not the default network?</span>
+      <p class="mt-2 text-sm">Docker&rsquo;s default bridge doesn&rsquo;t give you DNS by service name. A user-defined bridge (what we get with an explicit <span class="mono">networks:</span>) does &mdash; which is how <span class="mono">es01</span> and <span class="mono">es02</span> find each other by name without any hardcoded IPs.</p>
+    </div>
+
+    <!-- Summary table -->
+    <h3 class="text-2xl font-semibold mt-16 mb-6">2.5 &nbsp; Reference table &mdash; every env var, one line each</h3>
+    <div class="box overflow-x-auto">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Setting</th>
+            <th>Value in lab</th>
+            <th>Why it matters</th>
+            <th>Production value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono text-xs">node.name</td><td class="mono text-xs">es01</td><td>Identifier in logs &amp; APIs</td><td class="mono text-xs">pod-name (k8s: field ref)</td></tr>
+          <tr><td class="mono text-xs">cluster.name</td><td class="mono text-xs">lab-cluster</td><td>Groups nodes into a cluster</td><td class="mono text-xs">env-prod-search</td></tr>
+          <tr><td class="mono text-xs">discovery.seed_hosts</td><td class="mono text-xs">es02</td><td>How node finds peers</td><td class="mono text-xs">headless-svc.ns.svc</td></tr>
+          <tr><td class="mono text-xs">cluster.initial_master_nodes</td><td class="mono text-xs">es01,es02</td><td>Bootstrap vote quorum</td><td class="mono text-xs">3 dedicated masters</td></tr>
+          <tr><td class="mono text-xs">bootstrap.memory_lock</td><td class="mono text-xs">true</td><td>Prevents GC from swap</td><td class="mono text-xs">true (always)</td></tr>
+          <tr><td class="mono text-xs">xpack.security.enabled</td><td class="mono text-xs">false</td><td>Auth + TLS + RBAC</td><td class="mono text-xs">true (always)</td></tr>
+          <tr><td class="mono text-xs">ES_JAVA_OPTS (Xms=Xmx)</td><td class="mono text-xs">512m</td><td>JVM heap size</td><td class="mono text-xs">50% RAM up to 31g</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 3 -->
+<section id="ch3" class="border-b border-gray-200" style="background:var(--gray-10);">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 03</div>
+    <h2 class="serif text-4xl font-medium mb-4">The remaining services</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      es02 is a near-mirror of es01. The interesting parts are Kibana, the API build, the watchdog, and the static-file UI &mdash; each wired together with <span class="mono text-sm">depends_on</span>.
+    </p>
+
+    <h3 class="text-2xl font-semibold mb-4">3.1 &nbsp; es02 &mdash; what changes, what doesn&rsquo;t</h3>
+    <div class="code-wrap">
+<pre><span class="ln">35</span>  <span class="c-key">es02</span>:
+<span class="ln">36</span>    <span class="c-key">image</span>: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+<span class="ln">37</span>    <span class="c-key">container_name</span>: es02
+<span class="ln">38</span>    <span class="c-key">environment</span>:
+<span class="ln">39</span>      - node.name=es02                          <span class="c-com"># different</span>
+<span class="ln">40</span>      - cluster.name=lab-cluster                <span class="c-com"># SAME - joins same cluster</span>
+<span class="ln">41</span>      - discovery.seed_hosts=es01               <span class="c-com"># different - points at the OTHER peer</span>
+<span class="ln">42</span>      - cluster.initial_master_nodes=es01,es02  <span class="c-com"># SAME - both vote</span>
+<span class="ln">43</span>      ...
+<span class="ln">44</span>    <span class="c-key">ports</span>:
+<span class="ln">45</span>      - <span class="c-str">"9201:9200"</span>                            <span class="c-com"># host 9201 -&gt; container 9200</span></pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">Three values are different from es01, everything else is identical. The port mapping is <span class="mono">9201:9200</span> &mdash; the container still listens internally on 9200, but we expose it on host port 9201 to avoid colliding with es01.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY symmetrical seed_hosts</span>
+      <p class="mt-2 text-sm">es01 seeds from es02, es02 seeds from es01. Either can start first and still discover its partner. The fragile alternative &mdash; having both point at a single "primary" &mdash; breaks when that one node is down at boot.</p>
+    </div>
+
+    <!-- 3.2 Kibana -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">3.2 &nbsp; Kibana</h3>
+    <div class="code-wrap">
+<pre><span class="ln">55</span>  <span class="c-key">kibana</span>:
+<span class="ln">56</span>    <span class="c-key">image</span>: docker.elastic.co/kibana/kibana:8.13.4
+<span class="ln">57</span>    <span class="c-key">environment</span>:
+<span class="ln">58</span>      - ELASTICSEARCH_HOSTS=[<span class="c-str">"http://es01:9200"</span>,<span class="c-str">"http://es02:9200"</span>]
+<span class="ln">59</span>    <span class="c-key">ports</span>: [<span class="c-str">"5601:5601"</span>]
+<span class="ln">60</span>    <span class="c-key">depends_on</span>:
+<span class="ln">61</span>      <span class="c-key">es01</span>: { condition: service_healthy }</pre>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 58</span>
+        <p class="mt-2 text-sm">Kibana accepts a <strong>list</strong> of ES hosts. It will round-robin read requests and transparently fail over if one is down.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY both nodes</span>
+        <p class="mt-2 text-sm">If you list only es01 and es01 dies, Kibana shows a blank page even though half the cluster is fine. The full list is a one-line resilience win.</p>
+      </div>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · lines 60-61</span>
+      <p class="mt-2 text-sm"><span class="mono">depends_on: condition: service_healthy</span> means Compose will not start Kibana until the es01 healthcheck passes. Without it, Kibana starts first, fails to connect, and prints a scary banner even though ES is coming up normally.</p>
+    </div>
+
+    <!-- 3.3 API -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">3.3 &nbsp; FastAPI backend</h3>
+    <div class="code-wrap">
+<pre><span class="ln">65</span>  <span class="c-key">api</span>:
+<span class="ln">66</span>    <span class="c-key">build</span>: ./api
+<span class="ln">67</span>    <span class="c-key">container_name</span>: api
+<span class="ln">68</span>    <span class="c-key">environment</span>:
+<span class="ln">69</span>      - ES_NODES=http://es01:9200,http://es02:9200
+<span class="ln">70</span>      - INDEX_NAME=documents
+<span class="ln">71</span>    <span class="c-key">ports</span>: [<span class="c-str">"8000:8000"</span>]
+<span class="ln">72</span>    <span class="c-key">depends_on</span>:
+<span class="ln">73</span>      <span class="c-key">es01</span>: { condition: service_healthy }
+<span class="ln">74</span>      <span class="c-key">es02</span>: { condition: service_healthy }</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 66</span>
+      <p class="mt-2 text-sm"><span class="mono">build: ./api</span> instructs Compose to build the image from the Dockerfile in that directory. The next section walks through that Dockerfile.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY pass ES_NODES as comma-separated</span>
+      <p class="mt-2 text-sm">The Python code splits on comma and hands the list to the <span class="mono">Elasticsearch(...)</span> constructor. Same pattern as Kibana &mdash; if one node is down, the client tries the next. This is client-side failover, no proxy involved.</p>
+    </div>
+
+    <!-- 3.4 API Dockerfile -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">3.4 &nbsp; api/Dockerfile</h3>
+    <div class="code-wrap">
+<pre><span class="ln">01</span><span class="c-kw">FROM</span> python:3.12-slim
+<span class="ln">02</span><span class="c-kw">WORKDIR</span> /app
+<span class="ln">03</span><span class="c-kw">COPY</span> requirements.txt .
+<span class="ln">04</span><span class="c-kw">RUN</span> pip install --no-cache-dir -r requirements.txt
+<span class="ln">05</span><span class="c-kw">COPY</span> . .
+<span class="ln">06</span><span class="c-kw">EXPOSE</span> 8000
+<span class="ln">07</span><span class="c-kw">CMD</span> [<span class="c-str">"uvicorn"</span>, <span class="c-str">"main:app"</span>, <span class="c-str">"--host"</span>, <span class="c-str">"0.0.0.0"</span>, <span class="c-str">"--port"</span>, <span class="c-str">"8000"</span>]</pre>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="annot"><span class="tag tag-what">WHAT · line 01</span>
+        <p class="mt-2 text-sm"><span class="mono">python:3.12-slim</span> is the Debian-slim variant &mdash; ~45 MB vs ~900 MB for the full image. Contains Python + pip and little else.</p>
+      </div>
+      <div class="annot-why"><span class="tag tag-why">WHY slim</span>
+        <p class="mt-2 text-sm">Smaller images = faster CI, smaller attack surface, less storage on production nodes. Only go with the full <span class="mono">python:3.12</span> if you need build tools (gcc, headers) to compile extensions; we don&rsquo;t here.</p>
+      </div>
+    </div>
+    <div class="annot-better"><span class="tag tag-better">BETTER</span>
+      <p class="mt-2 text-sm">For real production, use a multi-stage build or <span class="mono">python:3.12-slim</span> + <span class="mono">pip install --user</span> + <span class="mono">COPY --from=builder</span> to drop build deps from the final layer. Also run as non-root with <span class="mono">USER 1000</span>, and add <span class="mono">HEALTHCHECK</span>.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · lines 03-05</span>
+      <p class="mt-2 text-sm">Two COPY statements: requirements first, then everything else. Reason: Docker caches each layer. As long as <span class="mono">requirements.txt</span> doesn&rsquo;t change, the <span class="mono">pip install</span> layer is reused, and code-only changes produce tiny rebuilds.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 07</span>
+      <p class="mt-2 text-sm"><span class="mono">uvicorn</span> is the ASGI server that actually runs FastAPI. <span class="mono">main:app</span> = import <span class="mono">app</span> from <span class="mono">main.py</span>. <span class="mono">--host 0.0.0.0</span> is required for container networking &mdash; the default <span class="mono">127.0.0.1</span> would only accept traffic from within the container.</p>
+    </div>
+
+    <!-- 3.5 UI -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">3.5 &nbsp; Static UI with nginx</h3>
+    <div class="code-wrap">
+<pre><span class="ln">78</span>  <span class="c-key">ui</span>:
+<span class="ln">79</span>    <span class="c-key">image</span>: nginx:alpine
+<span class="ln">80</span>    <span class="c-key">container_name</span>: ui
+<span class="ln">81</span>    <span class="c-key">volumes</span>:
+<span class="ln">82</span>      - ./ui:/usr/share/nginx/html:ro
+<span class="ln">83</span>    <span class="c-key">ports</span>: [<span class="c-str">"8080:80"</span>]</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">No build step. Bind-mount the <span class="mono">ui/</span> directory directly into nginx&rsquo;s default docroot, read-only. Nginx serves the single <span class="mono">index.html</span>.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY no build</span>
+      <p class="mt-2 text-sm">Tailwind is loaded from a CDN in the HTML (<span class="mono">&lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;</span>). Zero npm, zero bundler, zero build. That&rsquo;s fine for a teaching artifact; for production you&rsquo;d compile Tailwind with PurgeCSS to ship only the classes you use (~10 KB instead of ~300 KB).</p>
+    </div>
+    <div class="annot-aws"><span class="tag tag-aws">AWS EQUIVALENT</span>
+      <p class="mt-2 text-sm">Replace nginx with an <strong>S3 bucket + CloudFront distribution</strong>. Upload <span class="mono">index.html</span>, point CloudFront at the bucket, done. Cheaper, globally cached, zero servers to manage. This is the #1 "move to AWS" win &mdash; static sites shouldn&rsquo;t run on VMs in 2026.</p>
+    </div>
+
+    <!-- 3.6 Watchdog -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">3.6 &nbsp; Go watchdog</h3>
+    <div class="code-wrap">
+<pre><span class="ln">86</span>  <span class="c-key">watchdog</span>:
+<span class="ln">87</span>    <span class="c-key">build</span>: ./go-watchdog
+<span class="ln">88</span>    <span class="c-key">container_name</span>: watchdog
+<span class="ln">89</span>    <span class="c-key">environment</span>:
+<span class="ln">90</span>      - ES_NODES=http://es01:9200,http://es02:9200
+<span class="ln">91</span>      - POLL_SECONDS=3</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">A separate container running a custom Go binary that polls both ES nodes every 3 seconds and logs state transitions. Full walkthrough in Chapter 07.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY a separate process</span>
+      <p class="mt-2 text-sm">Failover detection is a <em>cross-cutting</em> concern &mdash; nothing to do with business logic. Putting it in the API would mean the detector dies when the API dies. A separate tiny process can page on-call, update a registry, or trigger auto-recovery scripts even if every other service is broken.</p>
+    </div>
+    <div class="annot-aws"><span class="tag tag-aws">AWS EQUIVALENT</span>
+      <p class="mt-2 text-sm">On AWS Managed OpenSearch you get this for free: CloudWatch metrics + CloudWatch Alarms + EventBridge. For self-managed on EKS, replace this container with Prometheus + Alertmanager scraping the <span class="mono">elasticsearch_exporter</span>.</p>
+    </div>
+
+    <!-- service dependency graph -->
+    <h3 class="text-2xl font-semibold mt-16 mb-6">3.7 &nbsp; Service startup order</h3>
+    <div class="box p-8" style="background:white;">
+      <svg viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <defs>
+          <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f62fe"/>
+          </marker>
+        </defs>
+
+        <!-- start -->
+        <rect x="20" y="120" width="90" height="50" fill="#0f62fe"/>
+        <text x="65" y="150" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="white">docker up</text>
+
+        <!-- ES nodes (start in parallel) -->
+        <rect x="160" y="50" width="140" height="50" fill="white" stroke="#161616" stroke-width="2"/>
+        <text x="230" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">es01</text>
+        <text x="230" y="88" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">(healthcheck: 10s)</text>
+
+        <rect x="160" y="190" width="140" height="50" fill="white" stroke="#161616" stroke-width="2"/>
+        <text x="230" y="212" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">es02</text>
+        <text x="230" y="228" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">(healthcheck: 10s)</text>
+
+        <!-- barrier -->
+        <rect x="350" y="95" width="120" height="100" fill="#edf5ff" stroke="#0f62fe" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <text x="410" y="125" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0043ce">depends_on</text>
+        <text x="410" y="145" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0043ce">condition:</text>
+        <text x="410" y="165" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0043ce">service_healthy</text>
+
+        <!-- downstream services -->
+        <rect x="530" y="20" width="140" height="40" fill="white" stroke="#0f62fe" stroke-width="2"/>
+        <text x="600" y="45" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">kibana</text>
+
+        <rect x="530" y="80" width="140" height="40" fill="white" stroke="#0f62fe" stroke-width="2"/>
+        <text x="600" y="105" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">api</text>
+
+        <rect x="530" y="140" width="140" height="40" fill="white" stroke="#da1e28" stroke-width="2"/>
+        <text x="600" y="165" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">watchdog</text>
+
+        <rect x="530" y="200" width="140" height="40" fill="white" stroke="#525252" stroke-width="2"/>
+        <text x="600" y="225" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">ui (no dep)</text>
+
+        <!-- ready -->
+        <rect x="720" y="95" width="160" height="100" fill="#24a148"/>
+        <text x="800" y="135" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="white">STACK READY</text>
+        <text x="800" y="158" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">~45 seconds</text>
+
+        <!-- arrows -->
+        <line x1="110" y1="145" x2="158" y2="75" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="110" y1="145" x2="158" y2="215" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="300" y1="75"  x2="348" y2="130" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="300" y1="215" x2="348" y2="160" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="470" y1="120" x2="528" y2="40"  stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="470" y1="140" x2="528" y2="100" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="470" y1="160" x2="528" y2="160" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="110" y1="165" x2="528" y2="220" stroke="#525252" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow3)"/>
+        <line x1="670" y1="40"  x2="720" y2="130" stroke="#24a148" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="670" y1="100" x2="720" y2="140" stroke="#24a148" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="670" y1="160" x2="720" y2="150" stroke="#24a148" stroke-width="1.5" marker-end="url(#arrow3)"/>
+        <line x1="670" y1="220" x2="720" y2="160" stroke="#24a148" stroke-width="1.5" marker-end="url(#arrow3)"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 4 -->
+<section id="ch4" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 04</div>
+    <h2 class="serif text-4xl font-medium mb-4">api/main.py · the FastAPI backend</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      This file owns every Elasticsearch interaction. Four things matter here:
+      how we connect, how we build mappings, how we handle documents, and how we build the search query.
+    </p>
+
+    <!-- 4.1 imports & client -->
+    <h3 class="text-2xl font-semibold mt-8 mb-4">4.1 &nbsp; Imports &amp; the client</h3>
+    <div class="code-wrap">
+<pre><span class="ln">13</span><span class="c-kw">from</span> elasticsearch <span class="c-kw">import</span> Elasticsearch, NotFoundError, ApiError
+<span class="ln">14</span><span class="c-kw">from</span> fastapi <span class="c-kw">import</span> FastAPI, File, Form, HTTPException, UploadFile
+<span class="ln">15</span><span class="c-kw">from</span> pydantic <span class="c-kw">import</span> BaseModel, Field
+<span class="ln">16</span>
+<span class="ln">17</span>ES_NODES = os.environ.get(<span class="c-str">"ES_NODES"</span>, <span class="c-str">"http://localhost:9200"</span>).split(<span class="c-str">","</span>)
+<span class="ln">18</span>INDEX_NAME = os.environ.get(<span class="c-str">"INDEX_NAME"</span>, <span class="c-str">"documents"</span>)
+<span class="ln">19</span>
+<span class="ln">20</span>es = Elasticsearch(
+<span class="ln">21</span>    ES_NODES,
+<span class="ln">22</span>    request_timeout=<span class="c-num">10</span>,
+<span class="ln">23</span>    max_retries=<span class="c-num">3</span>,
+<span class="ln">24</span>    retry_on_timeout=<span class="c-kw">True</span>,
+<span class="ln">25</span>)</pre>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 17</span>
+      <p class="mt-2 text-sm">Read <span class="mono">ES_NODES</span> from the environment, fall back to localhost, split on comma. End result is a Python list like <span class="mono">["http://es01:9200", "http://es02:9200"]</span>.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY parameterize</span>
+      <p class="mt-2 text-sm">Same code, same image, different targets in dev/staging/prod. The 12-factor app principle: config lives in the environment, never in the source tree. A hardcoded URL means you can&rsquo;t promote the same image up the environment ladder.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · lines 20-25</span>
+      <p class="mt-2 text-sm">Construct one <span class="mono">Elasticsearch</span> client for the process lifetime. It accepts the <strong>list</strong> of nodes &mdash; internally it maintains a connection pool, tracks which nodes are reachable, and marks dead nodes so new requests skip them.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY one global client</span>
+      <p class="mt-2 text-sm">The client maintains a persistent HTTP connection pool. Re-creating it per request means a fresh TCP handshake + TLS negotiation every time &mdash; 10× slower. FastAPI runs multiple worker processes; each gets its own client and its own pool, which is exactly right.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · lines 22-24</span>
+      <ul class="mt-2 text-sm space-y-1 list-disc pl-5">
+        <li><span class="mono">request_timeout=10</span> &mdash; if a request hangs more than 10 seconds, raise.</li>
+        <li><span class="mono">max_retries=3</span> &mdash; automatically retry transient failures (connection errors, timeouts).</li>
+        <li><span class="mono">retry_on_timeout=True</span> &mdash; include timeouts in what counts as retryable.</li>
+      </ul>
+    </div>
+    <div class="annot-better"><span class="tag tag-better">BETTER</span>
+      <p class="mt-2 text-sm">Add <span class="mono">sniff_on_start=True</span> and <span class="mono">sniff_on_node_failure=True</span> so the client periodically re-discovers all nodes from the cluster, picking up new ones added after process start. And tune <span class="mono">maxsize</span> (connection pool size) to match your uvicorn worker concurrency.</p>
+    </div>
+
+    <!-- CORS -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">4.2 &nbsp; CORS middleware</h3>
+    <div class="code-wrap">
+<pre><span class="ln">34</span>app.add_middleware(
+<span class="ln">35</span>    CORSMiddleware,
+<span class="ln">36</span>    allow_origins=[<span class="c-str">"*"</span>],
+<span class="ln">37</span>    allow_methods=[<span class="c-str">"*"</span>],
+<span class="ln">38</span>    allow_headers=[<span class="c-str">"*"</span>],
+<span class="ln">39</span>)</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">Cross-Origin Resource Sharing middleware. The UI loads from <span class="mono">:8080</span> (nginx) and calls the API on <span class="mono">:8000</span> &mdash; different origin, so the browser blocks the request unless the server explicitly allows it.</p>
+    </div>
+    <div class="annot-warn"><span class="tag tag-warn">NEVER in production</span>
+      <p class="mt-2 text-sm"><span class="mono">allow_origins=["*"]</span> is a development convenience. In production list every exact origin that should be allowed: <span class="mono">["https://search.example.com"]</span>. A wildcard means any site on the internet can make authenticated requests to your API.</p>
+    </div>
+    <div class="annot-better"><span class="tag tag-better">BETTER</span>
+      <p class="mt-2 text-sm">Skip CORS entirely by serving the UI from the same origin as the API &mdash; put a reverse proxy (nginx, or the ALB in front) that routes <span class="mono">/api/*</span> to the FastAPI container and everything else to the static UI. Same-origin is simpler and more secure than configuring CORS right.</p>
+    </div>
+
+    <!-- Pydantic -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">4.3 &nbsp; Pydantic request models</h3>
+    <div class="code-wrap">
+<pre><span class="ln">46</span><span class="c-kw">class</span> <span class="c-fn">IndexSpec</span>(BaseModel):
+<span class="ln">47</span>    name: <span class="c-kw">str</span> = Field(..., description=<span class="c-str">"Index name, e.g. 'articles'"</span>)
+<span class="ln">48</span>    shards: <span class="c-kw">int</span> = Field(<span class="c-num">2</span>, ge=<span class="c-num">1</span>, le=<span class="c-num">10</span>)
+<span class="ln">49</span>    replicas: <span class="c-kw">int</span> = Field(<span class="c-num">1</span>, ge=<span class="c-num">0</span>, le=<span class="c-num">5</span>)
+<span class="ln">50</span>    keyword_fields: <span class="c-kw">list</span>[<span class="c-kw">str</span>] = Field(default_factory=<span class="c-kw">list</span>)
+<span class="ln">51</span>    text_fields: <span class="c-kw">list</span>[<span class="c-kw">str</span>] = Field(default_factory=<span class="c-kw">lambda</span>: [<span class="c-str">"content"</span>, <span class="c-str">"title"</span>])</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT</span>
+      <p class="mt-2 text-sm">Pydantic declares the request body. FastAPI auto-parses incoming JSON, validates types, enforces the bounds (<span class="mono">ge=1, le=10</span>), and rejects malformed requests with a structured 422 response. And it generates OpenAPI docs at <span class="mono">/docs</span> from these annotations for free.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY bounds on shards</span>
+      <p class="mt-2 text-sm">Two guardrails: someone can&rsquo;t ask for 10,000 shards and explode the cluster, and they can&rsquo;t ask for 0 shards (invalid). The UI could validate this client-side but a server-side guardrail is non-negotiable &mdash; never trust input from the browser.</p>
+    </div>
+
+    <!-- 4.4 mapping -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">4.4 &nbsp; The mapping builder &mdash; the heart of the API</h3>
+    <div class="code-wrap">
+<pre><span class="ln">70</span><span class="c-kw">def</span> <span class="c-fn">build_mapping</span>(spec: IndexSpec) -&gt; <span class="c-kw">dict</span>:
+<span class="ln">71</span>    props: <span class="c-kw">dict</span>[<span class="c-kw">str</span>, <span class="c-kw">dict</span>] = {
+<span class="ln">72</span>        <span class="c-str">"ingested_at"</span>: {<span class="c-str">"type"</span>: <span class="c-str">"date"</span>},
+<span class="ln">73</span>    }
+<span class="ln">74</span>    <span class="c-kw">for</span> f <span class="c-kw">in</span> spec.text_fields:
+<span class="ln">75</span>        props[f] = {
+<span class="ln">76</span>            <span class="c-str">"type"</span>: <span class="c-str">"text"</span>,
+<span class="ln">77</span>            <span class="c-str">"fields"</span>: {<span class="c-str">"keyword"</span>: {<span class="c-str">"type"</span>: <span class="c-str">"keyword"</span>, <span class="c-str">"ignore_above"</span>: <span class="c-num">256</span>}}
+<span class="ln">78</span>        }
+<span class="ln">79</span>    <span class="c-kw">for</span> f <span class="c-kw">in</span> spec.keyword_fields:
+<span class="ln">80</span>        props[f] = {<span class="c-str">"type"</span>: <span class="c-str">"keyword"</span>}
+<span class="ln">81</span>    <span class="c-kw">return</span> {
+<span class="ln">82</span>        <span class="c-str">"settings"</span>: {
+<span class="ln">83</span>            <span class="c-str">"number_of_shards"</span>: spec.shards,
+<span class="ln">84</span>            <span class="c-str">"number_of_replicas"</span>: spec.replicas,
+<span class="ln">85</span>            <span class="c-str">"refresh_interval"</span>: <span class="c-str">"1s"</span>,
+<span class="ln">86</span>        },
+<span class="ln">87</span>        <span class="c-str">"mappings"</span>: {<span class="c-str">"properties"</span>: props},
+<span class="ln">88</span>    }</pre>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · lines 74-78 &mdash; the sub-field trick</span>
+      <p class="mt-2 text-sm">Every <em>text</em> field gets mapped as analyzed text, <strong>plus</strong> a nested <span class="mono">.keyword</span> sub-field that stores the raw value unchanged (up to 256 chars).</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY this matters</span>
+      <p class="mt-2 text-sm">Text fields can be full-text searched (<span class="mono">match</span> query) but can&rsquo;t be used for aggregations, sorting, or exact filters &mdash; they&rsquo;re tokenized. The sub-field gives you both behaviors: query <span class="mono">title</span> for fuzzy search, query <span class="mono">title.keyword</span> when you want to group by exact title.</p>
+      <p class="mt-2 text-sm"><span class="mono">ignore_above: 256</span> means strings longer than 256 chars aren&rsquo;t indexed in the keyword sub-field. Protects against blowing up memory on a 10 MB text blob.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 85</span>
+      <p class="mt-2 text-sm"><span class="mono">refresh_interval: 1s</span> &mdash; how often ES makes newly-indexed docs searchable. 1 second is the default and means "near-real-time search."</p>
+    </div>
+    <div class="annot-better"><span class="tag tag-better">BETTER for bulk loads</span>
+      <p class="mt-2 text-sm">During a giant initial import (millions of docs), set <span class="mono">refresh_interval: -1</span> and <span class="mono">number_of_replicas: 0</span>, run the bulk, then put both settings back. 3-5× throughput improvement on first load because ES doesn&rsquo;t build search segments or write replicas as you go.</p>
+    </div>
+
+    <!-- 4.5 upload -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">4.5 &nbsp; File upload endpoint</h3>
+    <div class="code-wrap">
+<pre><span class="ln">140</span>@app.post(<span class="c-str">"/documents/upload"</span>, status_code=<span class="c-num">201</span>)
+<span class="ln">141</span><span class="c-kw">async def</span> <span class="c-fn">upload_text_file</span>(
+<span class="ln">142</span>    file: UploadFile = File(...),
+<span class="ln">143</span>    index: <span class="c-kw">str</span> = Form(INDEX_NAME),
+<span class="ln">144</span>    tags: <span class="c-kw">str</span> = Form(<span class="c-str">""</span>),
+<span class="ln">145</span>    author: <span class="c-kw">str</span> = Form(<span class="c-str">"unknown"</span>),
+<span class="ln">146</span>):
+<span class="ln">147</span>    raw = (<span class="c-kw">await</span> file.read()).decode(<span class="c-str">"utf-8"</span>, errors=<span class="c-str">"replace"</span>)
+<span class="ln">148</span>    <span class="c-kw">if not</span> es.indices.exists(index=index):
+<span class="ln">149</span>        es.indices.create(index=index, body=build_mapping(...))
+<span class="ln">150</span>    body = {
+<span class="ln">151</span>        <span class="c-str">"title"</span>: file.filename,
+<span class="ln">152</span>        <span class="c-str">"content"</span>: raw,
+<span class="ln">153</span>        <span class="c-str">"tags"</span>: [t.strip() <span class="c-kw">for</span> t <span class="c-kw">in</span> tags.split(<span class="c-str">","</span>) <span class="c-kw">if</span> t.strip()],
+<span class="ln">154</span>        ...
+<span class="ln">155</span>    }
+<span class="ln">156</span>    es.index(index=index, id=doc_id, document=body, refresh=<span class="c-str">"wait_for"</span>)</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 147</span>
+      <p class="mt-2 text-sm">Read the uploaded file into memory and decode as UTF-8. <span class="mono">errors="replace"</span> means invalid bytes become <span class="mono">U+FFFD</span> (the replacement character) rather than throwing. Safe default for unknown-source text.</p>
+    </div>
+    <div class="annot-warn"><span class="tag tag-warn">MEMORY LIMIT</span>
+      <p class="mt-2 text-sm"><span class="mono">await file.read()</span> loads the entire file into RAM. A 500 MB log file would OOM the container. For anything larger than a few MB, stream with <span class="mono">await file.read(chunk_size)</span> in a loop or use the ES bulk helpers to index line by line.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 156</span>
+      <p class="mt-2 text-sm"><span class="mono">refresh="wait_for"</span> means the write request doesn&rsquo;t return until the doc is searchable. Up to 1 second delay, but the UI can search immediately after upload.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">Three refresh modes</span>
+      <ul class="mt-2 text-sm space-y-1 list-disc pl-5">
+        <li><span class="mono">refresh=False</span> (default) &mdash; return immediately, doc becomes searchable within <span class="mono">refresh_interval</span>. Fastest for bulk.</li>
+        <li><span class="mono">refresh="wait_for"</span> &mdash; return after the next natural refresh. Good balance for interactive writes.</li>
+        <li><span class="mono">refresh=True</span> &mdash; force an <em>immediate</em> refresh. Never use in hot paths &mdash; it generates a tiny segment per write and hurts performance cluster-wide.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 5 -->
+<section id="ch5" class="border-b border-gray-200" style="background:var(--gray-10);">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 05</div>
+    <h2 class="serif text-4xl font-medium mb-4">Why text and keyword are different</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      This one mapping decision determines whether your queries work. If you get it wrong, you&rsquo;ll hit it again at 2 AM when a field you thought was searchable isn&rsquo;t.
+    </p>
+
+    <!-- SVG: tokenization diagram -->
+    <div class="box bg-white p-10">
+      <svg viewBox="0 0 1100 360" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <defs>
+          <marker id="arrow5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f62fe"/>
+          </marker>
+        </defs>
+
+        <!-- Input -->
+        <rect x="40" y="140" width="200" height="60" fill="white" stroke="#161616" stroke-width="1.5"/>
+        <text x="140" y="160" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">INPUT STRING</text>
+        <text x="140" y="182" text-anchor="middle" font-family="IBM Plex Mono" font-size="14" font-weight="600" fill="#161616">"Quick Brown Foxes"</text>
+
+        <!-- text branch -->
+        <g>
+          <text x="420" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#0f62fe">Mapped as "text"</text>
+          <text x="420" y="70" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#525252">analyzer: standard</text>
+
+          <rect x="300" y="90" width="240" height="50" fill="#edf5ff" stroke="#0f62fe" stroke-width="1"/>
+          <text x="420" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#0043ce">1. tokenize (split on space)</text>
+          <text x="420" y="128" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">["Quick", "Brown", "Foxes"]</text>
+
+          <rect x="300" y="155" width="240" height="50" fill="#edf5ff" stroke="#0f62fe" stroke-width="1"/>
+          <text x="420" y="177" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#0043ce">2. lowercase filter</text>
+          <text x="420" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">["quick", "brown", "foxes"]</text>
+
+          <rect x="300" y="220" width="240" height="50" fill="#edf5ff" stroke="#0f62fe" stroke-width="1"/>
+          <text x="420" y="242" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#0043ce">3. stored in inverted index</text>
+          <text x="420" y="258" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">quick → [doc1], brown → [doc1]...</text>
+
+          <rect x="300" y="285" width="240" height="50" fill="#24a148"/>
+          <text x="420" y="305" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">match query matches:</text>
+          <text x="420" y="323" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="white">"quick" ✓  "FOX" ✓  "fox" ✓</text>
+        </g>
+
+        <!-- keyword branch -->
+        <g>
+          <text x="860" y="50" text-anchor="middle" font-family="IBM Plex Sans" font-size="16" font-weight="600" fill="#0f62fe">Mapped as "keyword"</text>
+          <text x="860" y="70" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#525252">no analyzer</text>
+
+          <rect x="740" y="90" width="240" height="50" fill="#f4f4f4" stroke="#525252" stroke-width="1"/>
+          <text x="860" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#525252">1. stored as-is</text>
+          <text x="860" y="128" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">"Quick Brown Foxes"</text>
+
+          <rect x="740" y="155" width="240" height="50" fill="#f4f4f4" stroke="#525252" stroke-width="1"/>
+          <text x="860" y="177" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#525252">2. (no transform)</text>
+          <text x="860" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">"Quick Brown Foxes"</text>
+
+          <rect x="740" y="220" width="240" height="50" fill="#f4f4f4" stroke="#525252" stroke-width="1"/>
+          <text x="860" y="242" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#525252">3. stored as single term</text>
+          <text x="860" y="258" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" fill="#161616">"Quick Brown Foxes" → [doc1]</text>
+
+          <rect x="740" y="285" width="240" height="50" fill="#da1e28"/>
+          <text x="860" y="305" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">term query matches:</text>
+          <text x="860" y="323" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="white">exact "Quick Brown Foxes" only</text>
+        </g>
+
+        <!-- arrows from input -->
+        <line x1="240" y1="165" x2="298" y2="115" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow5)"/>
+        <line x1="240" y1="175" x2="738" y2="115" stroke="#525252" stroke-width="1.5" stroke-dasharray="3 2" marker-end="url(#arrow5)"/>
+      </svg>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 mt-10">
+      <div class="box bg-white p-6">
+        <div class="font-semibold text-lg mb-3" style="color:var(--blue-60);">Use "text" for</div>
+        <ul class="space-y-2 text-sm">
+          <li>• Body content, article text, product descriptions</li>
+          <li>• Anywhere users type free-form queries</li>
+          <li>• Fields where fuzzy matching ("foxes" finds "fox") is desired</li>
+        </ul>
+      </div>
+      <div class="box bg-white p-6">
+        <div class="font-semibold text-lg mb-3" style="color:var(--blue-60);">Use "keyword" for</div>
+        <ul class="space-y-2 text-sm">
+          <li>• IDs, SKUs, email addresses, hostnames</li>
+          <li>• Tags, categories, enum-like values</li>
+          <li>• Anything you&rsquo;ll filter on (<span class="mono text-xs">author:alice</span>)</li>
+          <li>• Anything you&rsquo;ll aggregate on (count by category)</li>
+          <li>• Anything you&rsquo;ll sort by alphabetically</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="annot-warn mt-10"><span class="tag tag-warn">CLASSIC BUG</span>
+      <p class="mt-2 text-sm">You let ES dynamically map a field called <span class="mono">status</span>. Docs come in with values like <span class="mono">"PENDING"</span>, <span class="mono">"COMPLETE"</span>. ES chooses type=<span class="mono">text</span>, lowercases everything. Now <span class="mono">{"term": {"status": "PENDING"}}</span> returns zero results because the tokens stored are <span class="mono">pending</span>, not <span class="mono">PENDING</span>. <strong>Declare mappings explicitly. Never rely on dynamic mapping for production.</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 6 -->
+<section id="ch6" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 06</div>
+    <h2 class="serif text-4xl font-medium mb-4">The search endpoint &mdash; query construction</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      This is the endpoint users hit. It translates three simple query parameters into a real Elasticsearch Query DSL query.
+    </p>
+
+    <div class="code-wrap">
+<pre><span class="ln">186</span>@app.get(<span class="c-str">"/search"</span>)
+<span class="ln">187</span><span class="c-kw">def</span> <span class="c-fn">search</span>(
+<span class="ln">188</span>    q: <span class="c-kw">str</span> = <span class="c-str">""</span>,                           <span class="c-com"># free-text query</span>
+<span class="ln">189</span>    field: Optional[<span class="c-kw">str</span>] = <span class="c-kw">None</span>,            <span class="c-com"># restrict to one field</span>
+<span class="ln">190</span>    keyword: Optional[<span class="c-kw">str</span>] = <span class="c-kw">None</span>,          <span class="c-com"># exact "field:value"</span>
+<span class="ln">191</span>    index: <span class="c-kw">str</span> = INDEX_NAME,
+<span class="ln">192</span>    size: <span class="c-kw">int</span> = <span class="c-num">10</span>,
+<span class="ln">193</span>):
+<span class="ln">194</span>    must: <span class="c-kw">list</span>[<span class="c-kw">dict</span>] = []
+<span class="ln">195</span>
+<span class="ln">196</span>    <span class="c-kw">if</span> q:
+<span class="ln">197</span>        <span class="c-kw">if</span> field:
+<span class="ln">198</span>            must.append({<span class="c-str">"match"</span>: {field: q}})
+<span class="ln">199</span>        <span class="c-kw">else</span>:
+<span class="ln">200</span>            must.append({
+<span class="ln">201</span>                <span class="c-str">"multi_match"</span>: {
+<span class="ln">202</span>                    <span class="c-str">"query"</span>: q,
+<span class="ln">203</span>                    <span class="c-str">"fields"</span>: [<span class="c-str">"title^3"</span>, <span class="c-str">"content"</span>, <span class="c-str">"*"</span>],
+<span class="ln">204</span>                    <span class="c-str">"fuzziness"</span>: <span class="c-str">"AUTO"</span>,
+<span class="ln">205</span>                }
+<span class="ln">206</span>            })
+<span class="ln">207</span>
+<span class="ln">208</span>    <span class="c-kw">if</span> keyword <span class="c-kw">and</span> <span class="c-str">":"</span> <span class="c-kw">in</span> keyword:
+<span class="ln">209</span>        k, v = keyword.split(<span class="c-str">":"</span>, <span class="c-num">1</span>)
+<span class="ln">210</span>        must.append({<span class="c-str">"term"</span>: {k: v}})
+<span class="ln">211</span>
+<span class="ln">212</span>    query = {<span class="c-str">"match_all"</span>: {}} <span class="c-kw">if not</span> must <span class="c-kw">else</span> {<span class="c-str">"bool"</span>: {<span class="c-str">"must"</span>: must}}
+<span class="ln">213</span>
+<span class="ln">214</span>    result = es.search(
+<span class="ln">215</span>        index=index, query=query, size=size,
+<span class="ln">216</span>        highlight={<span class="c-str">"fields"</span>: {<span class="c-str">"content"</span>: {}, <span class="c-str">"title"</span>: {}}},
+<span class="ln">217</span>    )</pre>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · lines 194-212</span>
+      <p class="mt-2 text-sm">We build a <span class="mono">bool</span> query by collecting clauses into a <span class="mono">must</span> list. Empty list &rarr; <span class="mono">match_all</span> (return everything). Non-empty &rarr; wrap in <span class="mono">bool.must</span> which ANDs the clauses.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY build it this way</span>
+      <p class="mt-2 text-sm">Three API parameters, each optional. You can pass all, any two, or just one. Constructing the query as a list of clauses and joining them means the code stays linear &mdash; we don&rsquo;t need a nested if/else for every combination. This pattern scales to 10+ filters.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 203</span>
+      <p class="mt-2 text-sm"><span class="mono">"fields": ["title^3", "content", "*"]</span> &mdash; search across <strong>title</strong> (weighted 3×), <strong>content</strong> (1×), and every other field (<span class="mono">"*"</span>).</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY weight title</span>
+      <p class="mt-2 text-sm">A match in the title is a much stronger signal than a match buried in the body. The <span class="mono">^3</span> suffix tells the BM25 scorer to triple the score contribution from title matches &mdash; your most relevant docs bubble to the top.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 204</span>
+      <p class="mt-2 text-sm"><span class="mono">"fuzziness": "AUTO"</span> enables typo tolerance. Search <span class="mono">"elasticsrch"</span> and it will still find <span class="mono">"Elasticsearch"</span>.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">AUTO is smart</span>
+      <p class="mt-2 text-sm"><span class="mono">AUTO</span> means no fuzziness on 1-2 character terms (they&rsquo;d match everything), 1 edit allowed on 3-5 char terms, 2 edits on 6+ char terms. Specifying a fixed <span class="mono">"fuzziness": 2</span> would let a 3-character query match anything &mdash; destroying precision.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 210</span>
+      <p class="mt-2 text-sm"><span class="mono">term</span> (not <span class="mono">match</span>) for keyword filter. <span class="mono">term</span> looks up the exact value in the inverted index without running it through any analyzer.</p>
+    </div>
+    <div class="annot-warn"><span class="tag tag-warn">term vs match</span>
+      <p class="mt-2 text-sm">Using <span class="mono">match</span> on a keyword field <em>happens to work</em> but is semantically wrong &mdash; <span class="mono">match</span> would run the query through an analyzer first (for keyword fields that&rsquo;s a no-op, so it works by accident). Use <span class="mono">term</span> for keywords, <span class="mono">match</span> for text. Never conflate them.</p>
+    </div>
+
+    <div class="annot"><span class="tag tag-what">WHAT · line 216</span>
+      <p class="mt-2 text-sm"><span class="mono">highlight</span> tells ES to return the matched fragments with <span class="mono">&lt;em&gt;</span> tags around hit terms. The UI renders these with yellow highlighting. Essentially free &mdash; it&rsquo;s computed from data ES already has.</p>
+    </div>
+
+    <!-- bool query structure -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">6.1 &nbsp; The resulting query, visualized</h3>
+    <p class="text-sm mb-6" style="color:var(--gray-70);">For <span class="mono">/search?q=shards&amp;keyword=author:alice</span>, the builder constructs:</p>
+    <div class="box bg-white p-8">
+      <svg viewBox="0 0 900 320" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <!-- bool root -->
+        <rect x="340" y="20" width="220" height="60" fill="#0f62fe"/>
+        <text x="450" y="45" text-anchor="middle" font-family="IBM Plex Mono" font-size="12" font-weight="600" fill="white">bool.must</text>
+        <text x="450" y="63" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="white">ALL clauses must match (AND)</text>
+
+        <!-- multi_match -->
+        <rect x="50" y="140" width="340" height="140" fill="white" stroke="#0f62fe" stroke-width="1.5"/>
+        <rect x="50" y="140" width="340" height="24" fill="#edf5ff"/>
+        <text x="220" y="157" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="#0043ce">clause 1 · multi_match</text>
+        <text x="70" y="185" font-family="IBM Plex Mono" font-size="11" fill="#161616">query:     "shards"</text>
+        <text x="70" y="205" font-family="IBM Plex Mono" font-size="11" fill="#161616">fields:    title^3, content, *</text>
+        <text x="70" y="225" font-family="IBM Plex Mono" font-size="11" fill="#161616">fuzziness: AUTO</text>
+        <text x="70" y="252" font-family="IBM Plex Mono" font-size="11" fill="#525252" font-style="italic">→ runs through analyzer, scores via BM25</text>
+        <text x="70" y="268" font-family="IBM Plex Mono" font-size="11" fill="#525252" font-style="italic">→ typo tolerant, ranked by relevance</text>
+
+        <!-- term -->
+        <rect x="510" y="140" width="340" height="140" fill="white" stroke="#0f62fe" stroke-width="1.5"/>
+        <rect x="510" y="140" width="340" height="24" fill="#edf5ff"/>
+        <text x="680" y="157" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="600" fill="#0043ce">clause 2 · term</text>
+        <text x="530" y="185" font-family="IBM Plex Mono" font-size="11" fill="#161616">author: "alice"</text>
+        <text x="530" y="225" font-family="IBM Plex Mono" font-size="11" fill="#525252" font-style="italic">→ exact match, no analyzer</text>
+        <text x="530" y="241" font-family="IBM Plex Mono" font-size="11" fill="#525252" font-style="italic">→ does not contribute to score</text>
+        <text x="530" y="257" font-family="IBM Plex Mono" font-size="11" fill="#525252" font-style="italic">→ cached by ES (fast)</text>
+
+        <!-- arrows -->
+        <line x1="420" y1="80" x2="220" y2="138" stroke="#0f62fe" stroke-width="1.5"/>
+        <line x1="480" y1="80" x2="680" y2="138" stroke="#0f62fe" stroke-width="1.5"/>
+
+        <!-- final -->
+        <text x="450" y="310" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#525252">
+          Result: docs authored by alice that mention shards, sorted by relevance score
+        </text>
+      </svg>
+    </div>
+
+    <div class="annot-better mt-10"><span class="tag tag-better">BETTER for production</span>
+      <p class="mt-2 text-sm">Move exact-match filters from <span class="mono">must</span> to <span class="mono">filter</span>. <span class="mono">filter</span> clauses <strong>don&rsquo;t contribute to the score</strong> and are <strong>cached</strong> by Elasticsearch. The <span class="mono">term</span> clause above is better written as:</p>
+      <div class="mono text-xs mt-3 p-3 bg-white" style="border:1px solid var(--gray-30);">{"bool": {"must": [multi_match], "filter": [term]}}</div>
+      <p class="mt-2 text-sm">Same result, faster, less memory, identical scoring.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 7 -->
+<section id="ch7" class="border-b border-gray-200" style="background:var(--gray-10);">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 07</div>
+    <h2 class="serif text-4xl font-medium mb-4">The Go watchdog &mdash; 60 lines that teach state machines</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      No third-party deps. Just a loop, a map, and an HTTP client. It exists to demonstrate two things: how to detect failure, and why you should detect it in a separate process.
+    </p>
+
+    <!-- 7.1 probe -->
+    <h3 class="text-2xl font-semibold mt-8 mb-4">7.1 &nbsp; The probe function</h3>
+    <div class="code-wrap">
+<pre><span class="ln">42</span><span class="c-kw">var</span> httpClient = &amp;http.Client{Timeout: 2 * time.Second}
+<span class="ln">43</span>
+<span class="ln">44</span><span class="c-kw">func</span> <span class="c-fn">probe</span>(url <span class="c-kw">string</span>) (nodeState, *clusterHealth) {
+<span class="ln">45</span>    st := nodeState{URL: url}
+<span class="ln">46</span>    resp, err := httpClient.Get(url + <span class="c-str">"/_cluster/health"</span>)
+<span class="ln">47</span>    <span class="c-kw">if</span> err != <span class="c-kw">nil</span> {
+<span class="ln">48</span>        st.LastErr = err.Error()
+<span class="ln">49</span>        <span class="c-kw">return</span> st, <span class="c-kw">nil</span>
+<span class="ln">50</span>    }
+<span class="ln">51</span>    <span class="c-kw">defer</span> resp.Body.Close()
+<span class="ln">52</span>    <span class="c-kw">if</span> resp.StatusCode != 200 {
+<span class="ln">53</span>        st.LastErr = fmt.Sprintf(<span class="c-str">"http %d"</span>, resp.StatusCode)
+<span class="ln">54</span>        <span class="c-kw">return</span> st, <span class="c-kw">nil</span>
+<span class="ln">55</span>    }
+<span class="ln">56</span>    <span class="c-kw">var</span> h clusterHealth
+<span class="ln">57</span>    json.NewDecoder(resp.Body).Decode(&amp;h)
+<span class="ln">58</span>    st.Up = <span class="c-kw">true</span>
+<span class="ln">59</span>    <span class="c-kw">return</span> st, &amp;h
+<span class="ln">60</span>}</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 42</span>
+      <p class="mt-2 text-sm">Package-level <span class="mono">httpClient</span> with a 2-second <strong>total</strong> timeout.</p>
+    </div>
+    <div class="annot-warn"><span class="tag tag-warn">TIMEOUT TRAP</span>
+      <p class="mt-2 text-sm">Go&rsquo;s default <span class="mono">http.Client</span> has <strong>no timeout</strong> (it hangs forever). Production services that forget to set one eventually have goroutines stacked on dead connections. Always set it. 2s is right here &mdash; the probe runs every 3s, so longer timeouts queue up.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 46</span>
+      <p class="mt-2 text-sm">Hit <span class="mono">/_cluster/health</span>. Any 2xx response means the node is reachable AND knows its cluster state. A response from a healthy-network node that just crashed internally would be an error or a 5xx &mdash; we&rsquo;d catch it.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · line 51</span>
+      <p class="mt-2 text-sm"><span class="mono">defer resp.Body.Close()</span> is not optional in Go. If you don&rsquo;t close the body, the underlying TCP connection stays open and can&rsquo;t be reused. Eventually the client leaks FDs and new requests fail.</p>
+    </div>
+
+    <!-- 7.2 main loop -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">7.2 &nbsp; The transition detector</h3>
+    <div class="code-wrap">
+<pre><span class="ln">90</span>    prev := <span class="c-fn">make</span>(<span class="c-kw">map</span>[<span class="c-kw">string</span>]nodeState, <span class="c-fn">len</span>(nodes))
+<span class="ln">91</span>    <span class="c-kw">for</span> _, u := <span class="c-kw">range</span> nodes {
+<span class="ln">92</span>        prev[u] = nodeState{URL: u, Up: <span class="c-kw">false</span>}
+<span class="ln">93</span>    }
+<span class="ln">94</span>    prevClusterStatus := <span class="c-str">""</span>
+<span class="ln">95</span>
+<span class="ln">96</span>    tick := time.NewTicker(time.Duration(pollSec) * time.Second)
+<span class="ln">97</span>    <span class="c-kw">for</span> <span class="c-kw">range</span> tick.C {
+<span class="ln">98</span>        <span class="c-kw">for</span> _, u := <span class="c-kw">range</span> nodes {
+<span class="ln">99</span>            curr, h := <span class="c-fn">probe</span>(u)
+<span class="ln">100</span>            before := prev[u]
+<span class="ln">101</span>            <span class="c-kw">switch</span> {
+<span class="ln">102</span>            <span class="c-kw">case</span> !before.Up &amp;&amp; curr.Up:
+<span class="ln">103</span>                log.Printf(<span class="c-str">"✅ RECOVERED  %s"</span>, u)
+<span class="ln">104</span>            <span class="c-kw">case</span> before.Up &amp;&amp; !curr.Up:
+<span class="ln">105</span>                log.Printf(<span class="c-str">"❌ FAILED     %s"</span>, u)
+<span class="ln">106</span>            }
+<span class="ln">107</span>            prev[u] = curr
+<span class="ln">108</span>        }
+<span class="ln">109</span>    }</pre>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · lines 90-93</span>
+      <p class="mt-2 text-sm">Seed every node as <span class="mono">Up: false</span>. On the first iteration, every reachable node will be logged as RECOVERED &mdash; that&rsquo;s fine, that&rsquo;s the initial "coming online" signal.</p>
+    </div>
+    <div class="annot"><span class="tag tag-what">WHAT · lines 101-106 &mdash; the state machine</span>
+      <p class="mt-2 text-sm">Only four possible transitions:</p>
+      <ul class="mt-2 text-sm list-disc pl-5 space-y-1">
+        <li><span class="mono">false → true</span> : <strong>RECOVERED</strong></li>
+        <li><span class="mono">true → false</span> : <strong>FAILED</strong></li>
+        <li><span class="mono">true → true</span> : still up (silent)</li>
+        <li><span class="mono">false → false</span> : still down (silent)</li>
+      </ul>
+      <p class="mt-2 text-sm">We only log on a <em>change</em>. Otherwise the log floods with every poll.</p>
+    </div>
+    <div class="annot-why"><span class="tag tag-why">WHY this pattern matters</span>
+      <p class="mt-2 text-sm">Edge-triggered monitoring. An alerting system that pages on "the node is still down" after the 100th poll wakes you up 99 times for the same thing. Edge-triggered alerts fire once per state change. This is the foundation of every alerting rule in Prometheus, PagerDuty, CloudWatch.</p>
+    </div>
+
+    <div class="annot-better mt-6"><span class="tag tag-better">BETTER for production</span>
+      <p class="mt-2 text-sm">Three hardenings:</p>
+      <ol class="mt-2 text-sm list-decimal pl-5 space-y-1">
+        <li><strong>Flap suppression</strong> &mdash; require 3 consecutive failed probes before declaring FAILED. Single blips shouldn&rsquo;t page.</li>
+        <li><strong>Webhook out</strong> &mdash; POST to PagerDuty / Slack / Opsgenie on transitions, not just log.</li>
+        <li><strong>Expose Prometheus metrics</strong> &mdash; run an HTTP server on :9100 with <span class="mono">elasticsearch_node_up</span> gauge. Then Alertmanager handles the flap suppression, routing, and escalation for you.</li>
+      </ol>
+    </div>
+    <div class="annot-aws"><span class="tag tag-aws">AWS EQUIVALENT</span>
+      <p class="mt-2 text-sm">On AWS Managed OpenSearch you get CloudWatch metrics out of the box: <span class="mono">ClusterStatus.green</span>, <span class="mono">ClusterStatus.yellow</span>, <span class="mono">ClusterStatus.red</span>. Attach a CloudWatch Alarm with a SNS topic target, and SNS fans out to email/PagerDuty. The watchdog becomes one Alarm resource in Terraform.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 8 -->
+<section id="ch8" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 08</div>
+    <h2 class="serif text-4xl font-medium mb-4">The failover drill, step by step</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      Run this on your laptop. It&rsquo;s the most important exercise in the whole lab.
+    </p>
+
+    <!-- Timeline SVG -->
+    <div class="box bg-white p-10">
+      <svg viewBox="0 0 1100 440" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <!-- timeline bar -->
+        <line x1="60" y1="60" x2="1040" y2="60" stroke="#161616" stroke-width="2"/>
+
+        <!-- t markers -->
+        <g font-family="IBM Plex Mono" font-size="10" fill="#525252">
+          <line x1="80"   y1="55" x2="80"   y2="65" stroke="#161616"/>
+          <text x="80" y="45" text-anchor="middle">t=0</text>
+
+          <line x1="280"  y1="55" x2="280"  y2="65" stroke="#161616"/>
+          <text x="280" y="45" text-anchor="middle">t=1s</text>
+
+          <line x1="500"  y1="55" x2="500"  y2="65" stroke="#da1e28"/>
+          <text x="500" y="45" text-anchor="middle" fill="#da1e28" font-weight="600">t≈10s</text>
+
+          <line x1="720"  y1="55" x2="720"  y2="65" stroke="#161616"/>
+          <text x="720" y="45" text-anchor="middle">t+30s</text>
+
+          <line x1="940"  y1="55" x2="940"  y2="65" stroke="#24a148"/>
+          <text x="940" y="45" text-anchor="middle" fill="#24a148" font-weight="600">t+60s</text>
+        </g>
+
+        <!-- step 1 -->
+        <rect x="30" y="90" width="170" height="100" fill="white" stroke="#161616" stroke-width="1.5"/>
+        <text x="115" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#525252">STEP 1</text>
+        <text x="115" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">Normal state</text>
+        <text x="115" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#24a148">status: green</text>
+        <text x="115" y="168" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">2 nodes, 4 shards</text>
+        <line x1="115" y1="190" x2="115" y2="58" stroke="#525252" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- step 2 -->
+        <rect x="230" y="90" width="170" height="100" fill="white" stroke="#161616" stroke-width="1.5"/>
+        <text x="315" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#525252">STEP 2</text>
+        <text x="315" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">Kill es02</text>
+        <text x="315" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">docker stop es02</text>
+        <line x1="315" y1="190" x2="280" y2="58" stroke="#525252" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- step 3 -->
+        <rect x="430" y="90" width="170" height="150" fill="#fff1f1" stroke="#da1e28" stroke-width="1.5"/>
+        <text x="515" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#da1e28">STEP 3</text>
+        <text x="515" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">es01 detects loss</text>
+        <text x="515" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#f1c21b">status: yellow</text>
+        <text x="515" y="170" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">promote replicas</text>
+        <text x="515" y="186" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">→ primaries on es01</text>
+        <text x="515" y="212" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#da1e28">watchdog: FAILED ❌</text>
+        <line x1="515" y1="240" x2="500" y2="58" stroke="#da1e28" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- step 4 -->
+        <rect x="650" y="90" width="170" height="120" fill="white" stroke="#161616" stroke-width="1.5"/>
+        <text x="735" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#525252">STEP 4</text>
+        <text x="735" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">Start es02</text>
+        <text x="735" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">docker start es02</text>
+        <text x="735" y="172" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">joins cluster</text>
+        <text x="735" y="188" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">replicas recover</text>
+        <line x1="735" y1="210" x2="720" y2="58" stroke="#525252" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- step 5 -->
+        <rect x="870" y="90" width="170" height="100" fill="#defbe6" stroke="#24a148" stroke-width="1.5"/>
+        <text x="955" y="112" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#24a148">STEP 5</text>
+        <text x="955" y="132" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">Full recovery</text>
+        <text x="955" y="152" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#24a148">status: green</text>
+        <text x="955" y="170" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#24a148">watchdog: RECOVERED ✅</text>
+        <line x1="955" y1="190" x2="940" y2="58" stroke="#24a148" stroke-width="1" stroke-dasharray="2 2"/>
+
+        <!-- bottom "user impact" track -->
+        <line x1="60" y1="320" x2="1040" y2="320" stroke="#525252" stroke-width="1"/>
+        <text x="30" y="325" font-family="IBM Plex Mono" font-size="10" fill="#525252">USER</text>
+
+        <rect x="60" y="330" width="980" height="30" fill="#defbe6" stroke="#24a148" stroke-width="1"/>
+        <text x="550" y="350" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#24a148">
+          Search &amp; indexing continue to work the entire time — zero data loss, zero downtime
+        </text>
+
+        <text x="550" y="395" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252" font-style="italic">
+          The Python client&rsquo;s node list quietly routes every request to es01 while es02 is down.
+        </text>
+        <text x="550" y="415" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252" font-style="italic">
+          This is why both kibana and api list BOTH nodes — single-URL clients would break at step 3.
+        </text>
+      </svg>
+    </div>
+
+    <!-- command list -->
+    <h3 class="text-2xl font-semibold mt-12 mb-4">8.1 &nbsp; Commands, copy-paste order</h3>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="code-wrap">
+<pre><span class="c-com"># Terminal 1 — watch the cluster</span>
+docker logs -f watchdog
+
+<span class="c-com"># Terminal 2 — trigger failure</span>
+docker stop es02
+<span class="c-com"># … wait 15 seconds, look at watchdog</span>
+docker start es02</pre>
+      </div>
+      <div class="code-wrap">
+<pre><span class="c-com"># Terminal 3 — prove the API still works</span>
+<span class="c-kw">while</span> <span class="c-kw">true</span>; <span class="c-kw">do</span>
+  curl -s localhost:8000/search?q=shards \
+    | jq <span class="c-str">'.total'</span>
+  sleep 1
+<span class="c-kw">done</span>
+<span class="c-com"># total should never drop to 0</span></pre>
+      </div>
+    </div>
+
+    <div class="annot mt-8"><span class="tag tag-what">EXPECTED watchdog log</span>
+      <div class="code-wrap mt-3">
+<pre>watchdog starting — polling 2 nodes every 3s
+🎯 ACTIVE node is http://es01:9200
+🌡  cluster status: unknown → green  (2 nodes, 4 active / 0 unassigned)
+❌ FAILED     http://es02:9200  (context deadline exceeded)
+🌡  cluster status: green → yellow  (1 nodes, 2 active / 2 unassigned)
+✅ RECOVERED  http://es02:9200
+🌡  cluster status: yellow → green  (2 nodes, 4 active / 0 unassigned)</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 9 -->
+<section id="ch9" class="border-b border-gray-200" style="background:var(--blue-10);">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 09</div>
+    <h2 class="serif text-4xl font-medium mb-4">The full AWS translation</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      Every container in this stack has an AWS counterpart. The architectural shape is the same &mdash; storage, compute, network, monitoring &mdash; but the operational burden drops by 80% because AWS runs most of it.
+    </p>
+
+    <div class="box overflow-x-auto bg-white">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>This lab</th>
+            <th>AWS service (managed path)</th>
+            <th>AWS service (self-managed path)</th>
+            <th>Key difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono text-xs">es01</span>, <span class="mono text-xs">es02</span></td>
+            <td class="mono text-xs" style="color:var(--blue-60);font-weight:600;">Amazon OpenSearch Service</td>
+            <td class="mono text-xs">EKS + opensearch-operator</td>
+            <td>Managed ⇒ you don&rsquo;t see the nodes, just a VPC endpoint. Self-managed ⇒ you run the StatefulSet.</td>
+          </tr>
+          <tr>
+            <td>Docker volumes</td>
+            <td>EBS gp3 (under managed)</td>
+            <td>EBS gp3 via EBS CSI driver</td>
+            <td>Per-AZ. Never use EFS for ES &mdash; too slow.</td>
+          </tr>
+          <tr>
+            <td>Docker bridge network</td>
+            <td colspan="2">VPC with private subnets in 3 AZs</td>
+            <td>Shard allocation awareness spreads replicas across AZs.</td>
+          </tr>
+          <tr>
+            <td>Host ports <span class="mono text-xs">9200/9201</span></td>
+            <td colspan="2">Application Load Balancer (internal)</td>
+            <td>Single hostname, TLS terminated at ALB, path-based routing.</td>
+          </tr>
+          <tr>
+            <td>kibana</td>
+            <td class="mono text-xs" style="color:var(--blue-60);font-weight:600;">OpenSearch Dashboards (bundled)</td>
+            <td>Separate deployment</td>
+            <td>Bundled for free with managed domain.</td>
+          </tr>
+          <tr>
+            <td>API · FastAPI</td>
+            <td colspan="2">ECS Fargate or EKS Deployment + ALB target group</td>
+            <td>Scale horizontally behind the ALB. Same image either way.</td>
+          </tr>
+          <tr>
+            <td>UI · nginx</td>
+            <td colspan="2" class="mono text-xs" style="color:var(--blue-60);font-weight:600;">S3 bucket + CloudFront distribution</td>
+            <td>No container. Cheaper, faster, cached globally.</td>
+          </tr>
+          <tr>
+            <td>watchdog · Go</td>
+            <td class="mono text-xs" style="color:var(--blue-60);font-weight:600;">CloudWatch Alarm + SNS</td>
+            <td>Prometheus + Alertmanager</td>
+            <td>Managed path replaces it entirely.</td>
+          </tr>
+          <tr>
+            <td>(none &mdash; you lose data if the volume dies)</td>
+            <td colspan="2" class="mono text-xs" style="color:var(--blue-60);font-weight:600;">S3 snapshot repository</td>
+            <td>Automatic daily snapshots to S3 on managed; manual SLM policy on self-managed.</td>
+          </tr>
+          <tr>
+            <td>Secrets in env vars</td>
+            <td colspan="2">AWS Secrets Manager + IAM role</td>
+            <td>Passwords rotate without redeploy.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- AWS diagram -->
+    <h3 class="text-2xl font-semibold mt-14 mb-6">9.1 &nbsp; What the stack looks like on AWS</h3>
+    <div class="box bg-white p-10">
+      <svg viewBox="0 0 1100 560" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <defs>
+          <marker id="arrow9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f62fe"/>
+          </marker>
+        </defs>
+
+        <!-- outer VPC -->
+        <rect x="220" y="60" width="860" height="480" fill="none" stroke="#0043ce" stroke-width="1" stroke-dasharray="5 3"/>
+        <text x="240" y="50" font-family="IBM Plex Mono" font-size="11" fill="#0043ce" letter-spacing="1">VPC · 3 AVAILABILITY ZONES</text>
+
+        <!-- internet user -->
+        <rect x="30" y="50" width="140" height="50" fill="white" stroke="#161616" stroke-width="1.5"/>
+        <text x="100" y="80" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">User browser</text>
+
+        <!-- CloudFront -->
+        <rect x="30" y="140" width="140" height="60" fill="#f1c21b"/>
+        <text x="100" y="162" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#161616">CLOUDFRONT</text>
+        <text x="100" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#161616">global CDN</text>
+        <text x="100" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">TLS · cache</text>
+
+        <!-- S3 -->
+        <rect x="30" y="240" width="140" height="60" fill="#24a148"/>
+        <text x="100" y="262" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">S3 BUCKET</text>
+        <text x="100" y="280" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white">static UI</text>
+        <text x="100" y="296" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="white">index.html</text>
+
+        <!-- ALB -->
+        <rect x="260" y="130" width="180" height="80" fill="#0f62fe"/>
+        <text x="350" y="155" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">APPLICATION LB</text>
+        <text x="350" y="175" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="white">TLS termination</text>
+        <text x="350" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="white">healthcheck: /health</text>
+
+        <!-- API / ECS -->
+        <rect x="500" y="130" width="180" height="80" fill="white" stroke="#0f62fe" stroke-width="2"/>
+        <text x="590" y="155" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0043ce">ECS FARGATE</text>
+        <text x="590" y="175" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" font-weight="600" fill="#161616">FastAPI · 2 tasks</text>
+        <text x="590" y="193" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">autoscale 2-10</text>
+
+        <!-- Managed OpenSearch -->
+        <rect x="760" y="100" width="280" height="200" fill="#edf5ff" stroke="#0f62fe" stroke-width="2"/>
+        <text x="900" y="122" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#0043ce">AMAZON OPENSEARCH SERVICE</text>
+        <text x="900" y="140" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#161616">prod-search (managed)</text>
+
+        <rect x="780" y="160" width="70" height="50" fill="white" stroke="#0f62fe"/>
+        <text x="815" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#161616">node</text>
+        <text x="815" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">AZ-a</text>
+
+        <rect x="865" y="160" width="70" height="50" fill="white" stroke="#0f62fe"/>
+        <text x="900" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#161616">node</text>
+        <text x="900" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">AZ-b</text>
+
+        <rect x="950" y="160" width="70" height="50" fill="white" stroke="#0f62fe"/>
+        <text x="985" y="180" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#161616">node</text>
+        <text x="985" y="196" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#525252">AZ-c</text>
+
+        <text x="900" y="240" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">dedicated masters: 3</text>
+        <text x="900" y="258" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">storage: EBS gp3 per node</text>
+        <text x="900" y="276" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="#525252">bundled: OpenSearch Dashboards</text>
+
+        <!-- S3 snapshots -->
+        <rect x="760" y="330" width="280" height="60" fill="#24a148"/>
+        <text x="900" y="352" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">S3 SNAPSHOT REPOSITORY</text>
+        <text x="900" y="370" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white">automatic daily · 14-day retention</text>
+
+        <!-- CloudWatch -->
+        <rect x="500" y="330" width="220" height="100" fill="#da1e28"/>
+        <text x="610" y="355" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">CLOUDWATCH</text>
+        <text x="610" y="375" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="white">metrics + alarms</text>
+        <text x="610" y="393" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="white">ClusterStatus.red → SNS</text>
+        <text x="610" y="411" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="white">FreeStorageSpace &lt; 20%</text>
+
+        <!-- Secrets Manager -->
+        <rect x="260" y="330" width="220" height="60" fill="#161616"/>
+        <text x="370" y="352" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="white">SECRETS MANAGER</text>
+        <text x="370" y="370" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="white">ES master password</text>
+
+        <!-- IAM -->
+        <rect x="260" y="410" width="460" height="60" fill="white" stroke="#161616" stroke-width="1"/>
+        <text x="490" y="432" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" font-weight="600" fill="#161616">IAM · ROLES &amp; POLICIES</text>
+        <text x="490" y="450" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#525252">ECS task role · OpenSearch access policy · Secrets access</text>
+
+        <!-- arrows -->
+        <line x1="100" y1="100" x2="100" y2="138" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow9)"/>
+        <line x1="100" y1="200" x2="100" y2="238" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow9)"/>
+        <line x1="170" y1="80" x2="258" y2="165" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow9)"/>
+        <line x1="440" y1="170" x2="498" y2="170" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow9)"/>
+        <line x1="680" y1="170" x2="758" y2="170" stroke="#0f62fe" stroke-width="1.5" marker-end="url(#arrow9)"/>
+        <line x1="900" y1="300" x2="900" y2="328" stroke="#525252" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow9)"/>
+        <line x1="900" y1="300" x2="720" y2="328" stroke="#da1e28" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow9)"/>
+        <line x1="590" y1="210" x2="480" y2="328" stroke="#525252" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arrow9)"/>
+      </svg>
+    </div>
+
+    <div class="annot-aws mt-10"><span class="tag tag-aws">THE KEY DIFFERENCE</span>
+      <p class="mt-2 text-sm"><strong>On AWS, you stop owning the failure modes of the data plane.</strong> With managed OpenSearch, AWS runs the nodes, replaces failed hardware, applies security patches, handles master election, and takes snapshots to S3 without you lifting a finger. Your watchdog isn&rsquo;t deleted &mdash; it becomes a CloudWatch Alarm. Your volumes aren&rsquo;t visible &mdash; they just work. You go from operating a cluster to consuming it.</p>
+      <p class="mt-2 text-sm">The trade-off: you can&rsquo;t install arbitrary plugins, you&rsquo;re ~6-12 months behind the latest OpenSearch release, and you pay a 20-30% premium over raw EC2. For ~90% of workloads, that&rsquo;s the right trade.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ CH 10 -->
+<section id="ch10" class="border-b border-gray-200">
+  <div class="max-w-[1400px] mx-auto px-8 py-20">
+    <div class="section-num mb-4">CHAPTER 10</div>
+    <h2 class="serif text-4xl font-medium mb-4">Production checklist</h2>
+    <p class="text-lg max-w-3xl mb-12" style="color:var(--gray-70);">
+      What must change before this stack carries a single real user request. Every item here has caused a real incident somewhere.
+    </p>
+
+    <!-- prod items as a stepped checklist -->
+    <div class="space-y-px" style="background:var(--gray-20);">
+      <!-- 1 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">01</div>
+        <div>
+          <h4 class="font-semibold text-lg">Enable security</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Set <span class="mono text-xs" style="background:var(--gray-10);padding:1px 4px;">xpack.security.enabled=true</span>, generate TLS certificates with <span class="mono text-xs">elasticsearch-certutil</span>, configure TLS on both HTTP (:9200) and transport (:9300) layers. Set <span class="mono text-xs">ELASTIC_PASSWORD</span> via Secrets Manager, not an env var in the compose file.</p>
+        </div>
+      </div>
+      <!-- 2 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">02</div>
+        <div>
+          <h4 class="font-semibold text-lg">Go from 2 nodes to 3 + 3</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Two master-eligible nodes can split-brain. Minimum production topology: 3 dedicated master nodes (small instances, no data) + at least 3 dedicated data nodes. The masters do only master-election work; data nodes do only data work.</p>
+        </div>
+      </div>
+      <!-- 3 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">03</div>
+        <div>
+          <h4 class="font-semibold text-lg">Put a load balancer in front</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">No direct <span class="mono text-xs">9200</span> publishing. Use an internal ALB with HTTPS, health checks against <span class="mono text-xs">/_cluster/health</span>, and stickiness disabled (stateless API calls). Give clients one hostname; let the LB handle node selection.</p>
+        </div>
+      </div>
+      <!-- 4 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">04</div>
+        <div>
+          <h4 class="font-semibold text-lg">Scheduled snapshots to durable storage</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Register S3 as a snapshot repository. Enable SLM (Snapshot Lifecycle Management) policy: daily at 01:00 UTC, 14-day retention. Docker volumes aren&rsquo;t a backup; a disk failure = permanent loss.</p>
+        </div>
+      </div>
+      <!-- 5 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">05</div>
+        <div>
+          <h4 class="font-semibold text-lg">Test a restore, quarterly</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">An untested backup isn&rsquo;t a backup; it&rsquo;s a claim. Spin up a throwaway cluster, restore the snapshot, count documents. Automate it in CI if you can.</p>
+        </div>
+      </div>
+      <!-- 6 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">06</div>
+        <div>
+          <h4 class="font-semibold text-lg">JVM heap at 50% of RAM, cap 31 GB</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Above ~32 GB the JVM loses compressed object pointers, every reference doubles in size, you get <em>less</em> usable heap. Leave the other 50% of RAM for the filesystem cache &mdash; Lucene depends on it heavily.</p>
+        </div>
+      </div>
+      <!-- 7 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">07</div>
+        <div>
+          <h4 class="font-semibold text-lg">Alert on the right thresholds</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Cluster status &ne; green for 5 min; disk usage &gt; 75% (watermarks kick in at 85/90/95%); JVM heap &gt; 85% sustained; thread pool rejections &gt; 0 for any pool. Alert on the leading indicators, not the failure.</p>
+        </div>
+      </div>
+      <!-- 8 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">08</div>
+        <div>
+          <h4 class="font-semibold text-lg">Use ILM / ISM for time-series indices</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Anything that grows forever (logs, events, orders by day) should roll over on a size/age limit and delete old data automatically. Without this, your cluster dies of disk exhaustion eventually &mdash; never from slowly, always at 2 AM.</p>
+        </div>
+      </div>
+      <!-- 9 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">09</div>
+        <div>
+          <h4 class="font-semibold text-lg">API container: non-root, pinned digest, healthcheck</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">Add <span class="mono text-xs">USER 1000</span> in the Dockerfile. Pin to a <span class="mono text-xs">@sha256:...</span> digest, not a tag. Add <span class="mono text-xs">HEALTHCHECK</span> in the Dockerfile. Remove <span class="mono text-xs">CORSMiddleware(allow_origins=["*"])</span> &mdash; list exact origins.</p>
+        </div>
+      </div>
+      <!-- 10 -->
+      <div class="bg-white p-6 grid md:grid-cols-[60px_1fr] gap-4">
+        <div class="section-num">10</div>
+        <div>
+          <h4 class="font-semibold text-lg">Replace the watchdog with CloudWatch Alarms</h4>
+          <p class="text-sm mt-1" style="color:var(--gray-70);">The Go watchdog is pedagogy. In production use your cloud&rsquo;s native monitoring &mdash; CloudWatch on AWS, Azure Monitor on Azure &mdash; with PagerDuty/Opsgenie routing. It has retries, escalation, on-call rotation, and audit logs that you&rsquo;d spend a year building from scratch.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-14 p-8" style="background:var(--blue-60);color:white;">
+      <div class="mono text-sm uppercase tracking-widest mb-2" style="color:#a6c8ff;">One-liner summary</div>
+      <p class="serif text-2xl font-medium leading-tight">
+        This lab teaches the <em>shape</em> of an Elasticsearch cluster: discovery, shards, replication, client failover, index mappings, and monitoring. Keep the shape, swap every implementation detail for its managed-cloud equivalent, and you have a production system.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ FOOTER -->
+<footer class="py-12 bg-white border-t-4" style="border-color:var(--blue-60);">
+  <div class="max-w-[1400px] mx-auto px-8 grid md:grid-cols-[1fr_auto] gap-8 items-end">
+    <div>
+      <div class="flex gap-[3px] mb-3">
+        <div class="w-3 h-8" style="background:var(--blue-60);"></div>
+        <div class="w-3 h-8" style="background:var(--blue-60);"></div>
+        <div class="w-3 h-8" style="background:var(--blue-60);"></div>
+        <div class="w-3 h-8" style="background:var(--blue-60);"></div>
+      </div>
+      <div class="font-semibold">Engineering walkthrough · Elasticsearch Lab</div>
+      <div class="text-sm mt-1" style="color:var(--gray-70);">A companion to the <span class="mono">es-lab</span> teaching project.</div>
+    </div>
+    <div class="text-right">
+      <div class="mono text-xs uppercase tracking-widest" style="color:var(--gray-50);">Version</div>
+      <div class="mono text-sm" style="color:var(--gray-70);">v1.0 · 2026-04-23</div>
+    </div>
+  </div>
+</footer>
+
+<!-- simple progress-as-you-scroll bar -->
+<div id="progress" class="fixed top-0 left-0 h-[2px] no-print" style="background:var(--blue-60);width:0%;z-index:50;transition:width 0.1s;"></div>
+
+<script>
+// scroll progress
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+// smooth anchors already native via CSS, but handle active TOC state
+const links = document.querySelectorAll('.toc-link');
+const sections = document.querySelectorAll('section[id]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector('.toc-link[href="#' + e.target.id + '"]');
+      if (a) a.classList.add('active');
+    }
+  });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
