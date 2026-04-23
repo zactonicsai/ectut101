@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elasticsearch Hands-On Tutorial</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            elasticBlue: '#2563eb',
+            elasticTeal: '#0f766e',
+            elasticGold: '#ca8a04'
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,0.08)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .code-block { position: relative; }
+    .diagram-line { height: 2px; background: linear-gradient(to right, #2563eb, #0f766e); }
+    .modal-backdrop { background: rgba(15, 23, 42, 0.6); }
+    .prose-code code { white-space: pre-wrap; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+  <header class="sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+      <div>
+        <h1 class="text-xl font-bold tracking-tight md:text-2xl">Elasticsearch Hands-On Tutorial</h1>
+        <p class="text-sm text-slate-600 dark:text-slate-300">Load data, configure indexes and shards, and understand how those choices affect search.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleDarkMode()" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Toggle theme</button>
+        <button onclick="window.print()" class="rounded-xl bg-elasticBlue px-3 py-2 text-sm font-semibold text-white hover:opacity-90">Print</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[280px_1fr]">
+    <aside class="h-fit rounded-3xl border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-24">
+      <h2 class="mb-3 text-lg font-semibold">Contents</h2>
+      <nav class="space-y-2 text-sm">
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#overview">1. Overview</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#diagram">2. How search works</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#lab-setup">3. Lab setup</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#create-index">4. Create an index</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#load-data">5. Load data</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#searching">6. Search and filter</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#shards">7. Shards and replicas</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#best-practices">8. Best practices</a>
+        <a class="block rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800" href="#lab-checklist">9. Lab checklist</a>
+      </nav>
+
+      <div class="mt-6 rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/30">
+        <h3 class="font-semibold">What you will build</h3>
+        <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">
+          A small <strong>books</strong> index, sample documents, bulk ingestion, full-text search, exact filtering, shard inspection, and a clean mental model for why Elasticsearch behaves the way it does.
+        </p>
+      </div>
+    </aside>
+
+    <main class="space-y-6">
+      <section id="overview" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Hands-on</span>
+          <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">Curl-based</span>
+          <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Beginner friendly</span>
+        </div>
+
+        <h2 class="mt-4 text-2xl font-bold">1) Overview: what Elasticsearch is really doing</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          Elasticsearch stores JSON documents inside an <strong>index</strong>. That index has <strong>mappings</strong> that define field behavior and <strong>settings</strong> that control operations like shard and replica layout. When you load data, Elasticsearch analyzes fields, writes documents into shard segments, and later fans search queries out across shards before merging the results.
+        </p>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-3">
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Document</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">One JSON object you want to search, such as a product, article, case file, or log entry.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Mapping</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Defines whether a field is full-text searchable, exact-match only, numeric, date-based, and more.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Shard layout</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Determines how data is split and duplicated, which directly affects indexing, resilience, and search speed.</p>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button onclick="openModal('modal-why-indexes')" class="rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white hover:opacity-90">Why indexes matter</button>
+          <button onclick="openModal('modal-text-vs-keyword')" class="rounded-xl border border-slate-300 px-4 py-2 font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Text vs keyword</button>
+        </div>
+      </section>
+
+      <section id="diagram" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">2) Diagram: how indexing and searching connect</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          The most important idea in Elasticsearch is that your field design controls your search experience. Data is not just stored. It is transformed into searchable structures.
+        </p>
+
+        <div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 p-6 dark:border-slate-700">
+          <div class="min-w-[820px]">
+            <div class="grid grid-cols-5 items-center gap-4 text-center">
+              <div class="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+                <div class="text-sm font-semibold">JSON Documents</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">title, category, date, description</div>
+              </div>
+              <div class="diagram-line"></div>
+              <div class="rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/30">
+                <div class="text-sm font-semibold">Mapping + Analysis</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">text, keyword, float, date</div>
+              </div>
+              <div class="diagram-line"></div>
+              <div class="rounded-2xl bg-teal-50 p-4 dark:bg-teal-950/30">
+                <div class="text-sm font-semibold">Primary Shards</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">routing, indexing, segment storage</div>
+              </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-5 items-center gap-4 text-center">
+              <div class="rounded-2xl bg-amber-50 p-4 dark:bg-amber-950/30">
+                <div class="text-sm font-semibold">User Query</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">match, term, range</div>
+              </div>
+              <div class="diagram-line"></div>
+              <div class="rounded-2xl bg-purple-50 p-4 dark:bg-purple-950/30">
+                <div class="text-sm font-semibold">Search Fan-Out</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">each shard searched in parallel</div>
+              </div>
+              <div class="diagram-line"></div>
+              <div class="rounded-2xl bg-emerald-50 p-4 dark:bg-emerald-950/30">
+                <div class="text-sm font-semibold">Merged Results</div>
+                <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">top hits, scores, filters, sorting</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 rounded-2xl bg-slate-100 p-4 text-sm dark:bg-slate-800">
+          <strong>Key takeaway:</strong> mapping affects what gets indexed, shards affect how it is distributed, and queries behave differently depending on both.
+        </div>
+      </section>
+
+      <section id="lab-setup" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">3) Lab setup</h2>
+        <p class="mt-3 text-slate-700 dark:text-slate-300">
+          This lab assumes Elasticsearch is reachable at <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">http://localhost:9200</code>.
+        </p>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Option A: quick local Docker run</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-docker')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-docker" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>docker run --name es01 \
+  -p 9200:9200 -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  docker.elastic.co/elasticsearch/elasticsearch:9.1.0</code></pre>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Check that Elasticsearch is up</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-health')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-health" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl http://localhost:9200</code></pre>
+            </div>
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">You should see cluster information in JSON.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+          <h3 class="font-semibold">Why start single-node?</h3>
+          <p class="mt-2 text-sm">
+            It removes cluster complexity and lets you focus on the core ideas: mappings, indexing, querying, and shard behavior. In a single node lab, setting replicas to 0 is often practical because there is nowhere else to place a replica.
+          </p>
+        </div>
+      </section>
+
+      <section id="create-index" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">4) Create your first index the right way</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          Do not begin by dumping random JSON into Elasticsearch and hoping dynamic mapping guesses correctly. Create the index deliberately. Decide which fields are for full-text search and which are for exact matching, sorting, filtering, or aggregations.
+        </p>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div class="code-block">
+            <button onclick="copyCode('code-create-index')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+            <pre id="code-create-index" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X PUT "http://localhost:9200/books" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "fields": {
+            "raw": { "type": "keyword" }
+          }
+        },
+        "author":      { "type": "keyword" },
+        "published":   { "type": "date" },
+        "price":       { "type": "float" },
+        "category":    { "type": "keyword" },
+        "description": { "type": "text" },
+        "in_stock":    { "type": "boolean" }
+      }
+    }
+  }'</code></pre>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <h3 class="font-semibold">Why this mapping?</h3>
+              <ul class="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-300">
+                <li><strong>title</strong> is full-text searchable</li>
+                <li><strong>title.raw</strong> supports exact sort/filter use cases</li>
+                <li><strong>author</strong> and <strong>category</strong> are exact-match fields</li>
+                <li><strong>published</strong> and <strong>price</strong> support range queries</li>
+                <li><strong>in_stock</strong> makes boolean filters cheap and clean</li>
+              </ul>
+            </div>
+
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+              <h3 class="font-semibold">Important</h3>
+              <p class="mt-2 text-sm">
+                Primary shard count is a design-time choice. You can change replicas later much more easily than primaries.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button onclick="openModal('modal-mapping')" class="rounded-xl bg-elasticTeal px-4 py-2 font-semibold text-white">Open mapping explainer</button>
+          <button onclick="openModal('modal-shards')" class="rounded-xl border border-slate-300 px-4 py-2 font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Open shards explainer</button>
+        </div>
+      </section>
+
+      <section id="load-data" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">5) Load sample data</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          Start with a few hand-loaded documents so you can see exactly what is happening. Then switch to the Bulk API for larger loads.
+        </p>
+
+        <div class="mt-5 grid gap-4 xl:grid-cols-2">
+          <div>
+            <h3 class="mb-2 text-lg font-semibold">Single-document indexing</h3>
+            <div class="code-block">
+              <button onclick="copyCode('code-single')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-single" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X POST "http://localhost:9200/books/_doc/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Learning Elasticsearch",
+    "author": "Jane Smith",
+    "published": "2025-01-15",
+    "price": 39.99,
+    "category": "search",
+    "description": "A practical guide to indexing and searching documents.",
+    "in_stock": true
+  }'
+
+curl -X POST "http://localhost:9200/books/_doc/2" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Distributed Search Systems",
+    "author": "John Carter",
+    "published": "2024-11-02",
+    "price": 49.50,
+    "category": "architecture",
+    "description": "Explains shards, replicas, and query execution.",
+    "in_stock": false
+  }'</code></pre>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-2 text-lg font-semibold">Bulk indexing for real ingestion</h3>
+            <div class="code-block">
+              <button onclick="copyCode('code-bulk')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-bulk" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X POST "http://localhost:9200/books/_bulk" \
+  -H "Content-Type: application/x-ndjson" \
+  -d '
+{ "index": { "_id": "3" } }
+{ "title": "Lucene in Practice", "author": "A. Brown", "published": "2023-06-10", "price": 44.00, "category": "search", "description": "Covers indexing internals and relevance.", "in_stock": true }
+{ "index": { "_id": "4" } }
+{ "title": "Modern Data Platforms", "author": "R. Adams", "published": "2025-03-05", "price": 55.00, "category": "data", "description": "How search engines fit modern analytics platforms.", "in_stock": true }
+'</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+          <h3 class="font-semibold">Why Bulk matters</h3>
+          <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">
+            Every HTTP request has overhead. Bulk reduces that overhead by batching many actions into one request. That increases ingestion throughput and better matches how Elasticsearch is optimized internally.
+          </p>
+        </div>
+      </section>
+
+      <section id="searching" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">6) Search and filter</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          Full-text search and exact filters are different. That is why <strong>text</strong> and <strong>keyword</strong> exist as separate field strategies.
+        </p>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Full-text query</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-match')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-match" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X GET "http://localhost:9200/books/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "match": {
+        "description": "indexing search"
+      }
+    }
+  }'</code></pre>
+            </div>
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              <strong>Why it works:</strong> <code>description</code> is a <code>text</code> field, so Elasticsearch analyzes both stored content and query input.
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Exact filter</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-term')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-term" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X GET "http://localhost:9200/books/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "term": {
+        "category": "search"
+      }
+    }
+  }'</code></pre>
+            </div>
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              <strong>Why it works:</strong> <code>category</code> is a <code>keyword</code> field, so Elasticsearch matches the exact stored value.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+          <h3 class="font-semibold">Range query example</h3>
+          <div class="code-block mt-3">
+            <button onclick="copyCode('code-range')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+            <pre id="code-range" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl -X GET "http://localhost:9200/books/_search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "range": {
+        "price": {
+          "gte": 40,
+          "lte": 60
+        }
+      }
+    }
+  }'</code></pre>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button onclick="openModal('modal-query-types')" class="rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Query types explained</button>
+          <button onclick="openModal('modal-relevance')" class="rounded-xl border border-slate-300 px-4 py-2 font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Why relevance changes</button>
+        </div>
+      </section>
+
+      <section id="shards" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">7) Shards and replicas without confusion</h2>
+        <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+          A primary shard stores one partition of your index. A replica shard is a copy of a primary. More shards are not automatically better. Too many shards create metadata, coordination, and resource overhead.
+        </p>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Inspect index info</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-cat-indices')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-cat-indices" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl "http://localhost:9200/_cat/indices?v"</code></pre>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Inspect shard placement</h3>
+            <div class="code-block mt-3">
+              <button onclick="copyCode('code-cat-shards')" class="absolute right-2 top-2 rounded-lg bg-slate-800 px-2 py-1 text-xs font-semibold text-white">Copy</button>
+              <pre id="code-cat-shards" class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-sm text-slate-100"><code>curl "http://localhost:9200/_cat/shards/books?v"</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-100 dark:bg-slate-800">
+              <tr>
+                <th class="px-4 py-3 text-left">Choice</th>
+                <th class="px-4 py-3 text-left">Helps with</th>
+                <th class="px-4 py-3 text-left">Tradeoff</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-t border-slate-200 dark:border-slate-700">
+                <td class="px-4 py-3 font-medium">More primary shards</td>
+                <td class="px-4 py-3">Distribution and parallelism</td>
+                <td class="px-4 py-3">More overhead and coordination</td>
+              </tr>
+              <tr class="border-t border-slate-200 dark:border-slate-700">
+                <td class="px-4 py-3 font-medium">More replicas</td>
+                <td class="px-4 py-3">Read scale and resilience</td>
+                <td class="px-4 py-3">More disk and write cost</td>
+              </tr>
+              <tr class="border-t border-slate-200 dark:border-slate-700">
+                <td class="px-4 py-3 font-medium">Few large shards</td>
+                <td class="px-4 py-3">Lower coordination cost</td>
+                <td class="px-4 py-3">Can limit scale and recovery flexibility</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/30">
+          <h3 class="font-semibold">Simple beginner rule</h3>
+          <p class="mt-2 text-sm">
+            For a small project, start with <strong>1 primary shard</strong>. Add complexity only when data size, write rate, or search load proves that you need it.
+          </p>
+        </div>
+      </section>
+
+      <section id="best-practices" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">8) Best practices that improve search results and operations</h2>
+        <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Map fields intentionally</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Do not let dynamic mapping make all important decisions for production data.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Separate search from filtering</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Use <code>text</code> for full-text search and <code>keyword</code> for exact matching, sorting, and aggregations.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Start with fewer shards</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Over-sharding is one of the most common beginner mistakes.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Use Bulk for ingestion</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Bulk indexing reduces request overhead and improves throughput.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Normalize data</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Consistent date formats, clean categories, and stable IDs make search more predictable.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <h3 class="font-semibold">Test query behavior early</h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Load a small sample, run real queries, then refine mappings before scaling up.</p>
+          </div>
+        </div>
+
+        <div class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+          <h3 class="font-semibold">Common mistakes</h3>
+          <ul class="mt-2 list-disc space-y-2 pl-5 text-sm">
+            <li>Making every string field <code>text</code></li>
+            <li>Using too many shards too early</li>
+            <li>Indexing large datasets one document at a time</li>
+            <li>Ignoring exact-match and filter needs</li>
+            <li>Trying to redesign mappings after millions of documents are loaded</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="lab-checklist" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-2xl font-bold">9) Step-by-step lab checklist</h2>
+        <p class="mt-3 text-slate-700 dark:text-slate-300">Use these checkboxes as you work through the tutorial.</p>
+
+        <div class="mt-5 space-y-3">
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 1:</strong> Start Elasticsearch locally and confirm the cluster endpoint responds.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 2:</strong> Create the <code>books</code> index with explicit mappings and shard settings.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 3:</strong> Load two documents manually so you can inspect behavior clearly.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 4:</strong> Use the Bulk API to index more documents efficiently.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 5:</strong> Run a <code>match</code> query, a <code>term</code> query, and a <code>range</code> query.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 6:</strong> Inspect shards using the cat APIs and connect the results back to your index settings.</span>
+          </label>
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+            <input type="checkbox" class="mt-1 h-4 w-4" />
+            <span><strong>Step 7:</strong> Decide what fields in your own project need <code>text</code>, <code>keyword</code>, numeric, or date mappings.</span>
+          </label>
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button onclick="openModal('modal-next-steps')" class="rounded-xl bg-elasticTeal px-4 py-2 font-semibold text-white">Open next steps</button>
+          <button onclick="openModal('modal-lab-review')" class="rounded-xl border border-slate-300 px-4 py-2 font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Review the lab flow</button>
+        </div>
+      </section>
+
+      <footer class="rounded-3xl border border-slate-200 bg-white p-6 text-sm shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <p><strong>Tip:</strong> This tutorial is intentionally focused on core indexing and search concepts first. Once this feels natural, the next useful topics are analyzers, aliases, aggregations, relevance tuning, ILM, reindexing, and semantic search.</p>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-why-indexes" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-why-indexes')"></div>
+    <div class="relative z-10 max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Why indexes matter</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        An index is more than a folder of JSON. It is the searchable structure that Elasticsearch builds from your field mappings and settings. If the index is designed well, your search queries feel fast and accurate. If it is designed poorly, you may get bad relevance, slow filters, and scaling headaches later.
+      </p>
+      <button onclick="closeModal('modal-why-indexes')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-text-vs-keyword" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-text-vs-keyword')"></div>
+    <div class="relative z-10 max-w-2xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Text vs keyword</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        Use <strong>text</strong> when people search human language. Use <strong>keyword</strong> when values must match exactly, such as IDs, categories, tags, emails, status codes, and other structured values. A common pattern is to map one field both ways using multi-fields.
+      </p>
+      <button onclick="closeModal('modal-text-vs-keyword')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-mapping" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-mapping')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Mapping explainer</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        Mapping is how you tell Elasticsearch what each field means. That matters because a <code>match</code> query on <code>text</code> behaves very differently from a <code>term</code> query on <code>keyword</code>. Your mapping choices influence tokenization, filtering, sorting, aggregation behavior, and query relevance.
+      </p>
+      <button onclick="closeModal('modal-mapping')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-shards" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-shards')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Shards explainer</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        Elasticsearch distributes an index across primary shards. A replica is an additional copy of a primary shard. Searches can run against shard copies, which helps with read scale and resilience. But every shard also costs memory, metadata, and coordination overhead, so over-sharding can hurt performance.
+      </p>
+      <button onclick="closeModal('modal-shards')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-query-types" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-query-types')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Query types explained</h3>
+      <ul class="mt-3 list-disc space-y-2 pl-5 leading-7 text-slate-700 dark:text-slate-300">
+        <li><strong>match</strong>: full-text query for analyzed text</li>
+        <li><strong>term</strong>: exact-match query for structured values</li>
+        <li><strong>range</strong>: query numeric or date intervals</li>
+      </ul>
+      <button onclick="closeModal('modal-query-types')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-relevance" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-relevance')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Why relevance changes</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        Relevance depends on field analysis, token matching, and scoring across the indexed terms in your shard segments. If a field is mapped poorly, relevance will feel wrong because Elasticsearch built the wrong kind of searchable structure for that field.
+      </p>
+      <button onclick="closeModal('modal-relevance')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-next-steps" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-next-steps')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Next steps after this lab</h3>
+      <ul class="mt-3 list-disc space-y-2 pl-5 leading-7 text-slate-700 dark:text-slate-300">
+        <li>Learn analyzers and tokenization</li>
+        <li>Practice sorting and aggregations with keyword subfields</li>
+        <li>Use aliases to manage versioned indexes</li>
+        <li>Learn reindexing when mappings need to change</li>
+        <li>Explore semantic search once you understand standard indexing well</li>
+      </ul>
+      <button onclick="closeModal('modal-next-steps')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <div id="modal-lab-review" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" onclick="closeModal('modal-lab-review')"></div>
+    <div class="relative z-10 max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <h3 class="text-xl font-bold">Lab flow review</h3>
+      <p class="mt-3 leading-7 text-slate-700 dark:text-slate-300">
+        Build the index first, then load a few documents, then use Bulk, then search, then inspect shards. That order matters because it connects your index design to the actual search results you see.
+      </p>
+      <button onclick="closeModal('modal-lab-review')" class="mt-5 rounded-xl bg-elasticBlue px-4 py-2 font-semibold text-white">Close</button>
+    </div>
+  </div>
+
+  <script>
+    function copyCode(id) {
+      const el = document.getElementById(id);
+      const text = el.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const original = btn.innerText;
+        btn.innerText = 'Copied';
+        setTimeout(() => btn.innerText = original, 1200);
+      });
+    }
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('esTutorialTheme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+
+    (function initTheme() {
+      const saved = localStorage.getItem('esTutorialTheme');
+      if (saved === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+</body>
+</html>
