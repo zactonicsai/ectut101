@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Senior Java Engineer · Interview Quiz</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Serif:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --blue-10:  #edf5ff;
+    --blue-20:  #d0e2ff;
+    --blue-30:  #a6c8ff;
+    --blue-40:  #78a9ff;
+    --blue-50:  #4589ff;
+    --blue-60:  #0f62fe;
+    --blue-70:  #0043ce;
+    --blue-80:  #002d9c;
+    --blue-90:  #001d6c;
+    --gray-10:  #f4f4f4;
+    --gray-20:  #e0e0e0;
+    --gray-30:  #c6c6c6;
+    --gray-50:  #8d8d8d;
+    --gray-70:  #525252;
+    --gray-80:  #393939;
+    --gray-100: #161616;
+    --teal-40:  #08bdba;
+    --green:    #24a148;
+    --warn:     #f1c21b;
+    --error:    #da1e28;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background:#fff; color: var(--gray-100); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .serif { font-family: 'IBM Plex Serif', serif; }
+  .mono  { font-family: 'IBM Plex Mono', monospace; }
+  h1, h2, h3 { letter-spacing: -0.02em; }
+
+  .box      { border: 1px solid var(--gray-20); background:#fff; }
+  .box-blue { border: 1px solid var(--blue-60); background: var(--blue-10); }
+  .box-gray { background: var(--gray-10); border: 1px solid var(--gray-20); }
+
+  .tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; display: inline-block; }
+  .tag-java      { background: #002d9c; color: white; }
+  .tag-spring    { background: #24a148; color: white; }
+  .tag-rag       { background: #0f62fe; color: white; }
+  .tag-chroma    { background: #08bdba; color: var(--gray-100); }
+  .tag-api       { background: #4589ff; color: white; }
+  .tag-rdbms     { background: #8a3ffc; color: white; }
+  .tag-lombok    { background: #f1c21b; color: var(--gray-100); }
+  .tag-annot     { background: #525252; color: white; }
+  .tag-aop       { background: #da1e28; color: white; }
+  .tag-streaming { background: #ff7eb6; color: var(--gray-100); }
+  .tag-concur    { background: #0043ce; color: white; }
+
+  .tag-diff-easy { background: #defbe6; color: #0e6027; border: 1px solid #24a148; }
+  .tag-diff-med  { background: #fdf4e7; color: #684e00; border: 1px solid #f1c21b; }
+  .tag-diff-hard { background: #ffd7d9; color: #750e13; border: 1px solid #da1e28; }
+
+  .opt {
+    border: 1px solid var(--gray-20);
+    background: #fff;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: background-color 0.12s, border-color 0.12s;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 14px;
+    line-height: 1.5;
+    user-select: none;
+  }
+  .opt:hover { background: var(--blue-10); border-color: var(--blue-60); }
+  .opt .letter {
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600; font-size: 12px;
+    min-width: 26px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--gray-30); background: var(--gray-10);
+    flex-shrink: 0;
+  }
+  .opt.selected { border-color: var(--blue-60); background: var(--blue-10); }
+  .opt.selected .letter { background: var(--blue-60); color: white; border-color: var(--blue-60); }
+  .opt.correct { border-color: var(--green); background: #defbe6; }
+  .opt.correct .letter { background: var(--green); color: white; border-color: var(--green); }
+  .opt.incorrect { border-color: var(--error); background: #fff1f1; }
+  .opt.incorrect .letter { background: var(--error); color: white; border-color: var(--error); }
+  .opt.locked { cursor: default; }
+  .opt.locked:hover { background: inherit; border-color: inherit; }
+  .opt.locked.correct:hover { background: #defbe6; border-color: var(--green); }
+  .opt.locked.incorrect:hover { background: #fff1f1; border-color: var(--error); }
+  .opt.locked.selected:not(.correct):not(.incorrect):hover { background: var(--blue-10); border-color: var(--blue-60); }
+
+  .btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 10px 18px;
+    border: 1px solid var(--blue-60);
+    background: var(--blue-60); color: white;
+    cursor: pointer;
+    transition: background-color 0.12s;
+  }
+  .btn:hover { background: var(--blue-70); border-color: var(--blue-70); }
+  .btn:disabled { background: var(--gray-30); border-color: var(--gray-30); cursor: not-allowed; }
+  .btn-ghost { background: #fff; color: var(--blue-60); }
+  .btn-ghost:hover { background: var(--blue-10); color: var(--blue-70); }
+  .btn-dark { background: var(--gray-100); border-color: var(--gray-100); }
+  .btn-dark:hover { background: var(--gray-80); border-color: var(--gray-80); }
+
+  .explain {
+    border-left: 3px solid;
+    padding: 16px 20px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .explain-right { border-color: var(--green); background: #defbe6; }
+  .explain-wrong { border-color: var(--error); background: #fff1f1; }
+  .explain-hint  { border-color: var(--warn);  background: #fdf6dd; }
+
+  .explain a { color: var(--blue-70); text-decoration: underline; }
+  .explain a:hover { color: var(--blue-80); }
+  .explain code, .explain-hint code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    background: rgba(0,0,0,0.06); padding: 1px 5px;
+  }
+
+  pre.code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px; line-height: 1.6;
+    background: var(--gray-100); color: #f4f4f4;
+    padding: 12px 14px; margin: 8px 0;
+    overflow-x: auto;
+  }
+  pre.code .c-kw  { color: #78a9ff; font-weight: 500; }
+  pre.code .c-str { color: #a7f0ba; }
+  pre.code .c-com { color: #8d8d8d; font-style: italic; }
+  pre.code .c-num { color: #ff8389; }
+  pre.code .c-an  { color: #d4bbff; }
+
+  .cat-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border: 1px solid var(--gray-20);
+    background: #fff; cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .cat-pill:hover { border-color: var(--blue-60); color: var(--blue-60); }
+  .cat-pill.active { background: var(--blue-60); color: white; border-color: var(--blue-60); }
+
+  .progress-track {
+    height: 4px;
+    background: var(--gray-20);
+    width: 100%;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--blue-60);
+    transition: width 0.3s ease-out;
+  }
+
+  .side-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px;
+    display: inline-block;
+  }
+
+  .fade-in {
+    animation: fade-in 0.35s ease-out;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .score-meter {
+    width: 100%;
+    height: 10px;
+    background: linear-gradient(to right, var(--error) 0%, var(--warn) 50%, var(--green) 100%);
+    position: relative;
+  }
+  .score-marker {
+    position: absolute;
+    top: -4px;
+    width: 4px; height: 18px;
+    background: var(--gray-100);
+    transform: translateX(-2px);
+    transition: left 0.4s ease-out;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="border-b border-gray-200 bg-white sticky top-0 z-30">
+  <div class="max-w-[1300px] mx-auto px-6 py-4 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="flex gap-[3px]">
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+        <div class="w-2 h-6" style="background:var(--blue-60);"></div>
+      </div>
+      <div>
+        <div class="text-xs mono uppercase tracking-widest" style="color:var(--gray-50);">Interview Preparation</div>
+        <div class="text-lg font-semibold">Senior Java Engineer · Quiz</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-sm">
+      <div class="mono text-xs" style="color:var(--gray-70);">
+        <span id="answered-count">0</span> / <span id="total-count">0</span> answered
+      </div>
+      <div class="mono text-xs" style="color:var(--green);">
+        <span id="correct-count">0</span> correct
+      </div>
+      <button onclick="resetQuiz()" class="btn btn-ghost">Reset</button>
+    </div>
+  </div>
+  <div class="progress-track"><div id="progress-fill" class="progress-fill" style="width:0%;"></div></div>
+</header>
+
+<!-- HERO -->
+<section class="border-b border-gray-200">
+  <div class="max-w-[1300px] mx-auto px-6 py-10">
+    <div class="grid md:grid-cols-3 gap-8 items-end">
+      <div class="md:col-span-2">
+        <div class="mono text-xs uppercase tracking-widest mb-3" style="color:var(--blue-60);">INTERVIEW QUIZ · 50 QUESTIONS · RANDOMIZED</div>
+        <h1 class="serif text-4xl md:text-5xl font-medium leading-[1.05] tracking-tight">
+          Java 21 &middot; Spring Boot 3 &middot; RAG &middot;<br>
+          <span style="color:var(--blue-60);">and everything in between.</span>
+        </h1>
+        <p class="mt-5 text-base md:text-lg max-w-2xl" style="color:var(--gray-70);">
+          Mixed-difficulty multiple-choice questions covering Java 21 language features, Spring Boot 3.x patterns, RAG with Elasticsearch &amp; ChromaDB, REST API design, RDBMS best practices, Lombok, annotations, AOP, reactive streaming, and <code class="mono text-sm" style="background:var(--gray-10); padding:1px 5px;">CompletableFuture</code> / virtual threads. Each question includes a hint, a detailed explanation, and links to authoritative docs.
+        </p>
+      </div>
+      <aside class="box-blue p-5">
+        <div class="text-xs mono uppercase tracking-widest mb-3" style="color:var(--blue-70);">How to use</div>
+        <ul class="text-sm space-y-2">
+          <li><span class="mono" style="color:var(--blue-60);">1 &rarr;</span> Optionally click <em>Hint</em> before answering.</li>
+          <li><span class="mono" style="color:var(--blue-60);">2 &rarr;</span> Select the option you think is correct.</li>
+          <li><span class="mono" style="color:var(--blue-60);">3 &rarr;</span> Click <em>Submit</em>. You&rsquo;ll see why each option is right or wrong, with docs links.</li>
+          <li><span class="mono" style="color:var(--blue-60);">4 &rarr;</span> Filter by topic below to focus practice.</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- FILTERS -->
+<section class="border-b border-gray-200" style="background:var(--gray-10);">
+  <div class="max-w-[1300px] mx-auto px-6 py-6">
+    <div class="text-xs mono uppercase tracking-widest mb-3" style="color:var(--gray-70);">Filter by topic</div>
+    <div id="filters" class="flex flex-wrap gap-2"></div>
+  </div>
+</section>
+
+<!-- QUIZ BODY -->
+<main class="max-w-[1300px] mx-auto px-6 py-10">
+  <div id="quiz-container"></div>
+</main>
+
+<!-- SUMMARY BAR at bottom -->
+<section id="summary" class="border-t border-gray-200 py-10 hidden" style="background:var(--gray-100); color:#f4f4f4;">
+  <div class="max-w-[1300px] mx-auto px-6">
+    <div class="mono text-xs uppercase tracking-widest mb-3" style="color:var(--blue-40);">Your score</div>
+    <div class="grid md:grid-cols-3 gap-8 items-center">
+      <div>
+        <div class="serif text-6xl font-medium" id="final-pct">0%</div>
+        <div class="mono text-xs mt-2" style="color:var(--gray-50);"><span id="final-right">0</span> right &middot; <span id="final-wrong">0</span> wrong</div>
+      </div>
+      <div class="md:col-span-2">
+        <div class="score-meter">
+          <div class="score-marker" id="score-marker" style="left:0%;"></div>
+        </div>
+        <div class="flex justify-between mt-2 mono text-xs" style="color:var(--gray-50);">
+          <span>junior</span><span>mid</span><span>senior</span><span>staff+</span>
+        </div>
+        <div class="mt-4 text-sm" id="score-verdict" style="color:#d0e2ff;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="py-8 border-t border-gray-200">
+  <div class="max-w-[1300px] mx-auto px-6 flex justify-between items-center text-xs mono" style="color:var(--gray-50);">
+    <div>Interview prep &middot; self-study</div>
+    <div>50 questions &middot; 11 topics &middot; shuffled per session</div>
+  </div>
+</footer>
+
+<script>
+// ============================================================================
+// QUESTION DATA
+// Each question: {id, category, difficulty, tag, prompt, code?, options[], correct, hint, explanations[]}
+// explanations[i] corresponds to options[i]; one marked right: true, others right: false
+// ============================================================================
+
+const CATEGORIES = {
+  java:      { label: 'Java 21',           cls: 'tag-java' },
+  spring:    { label: 'Spring Boot 3',     cls: 'tag-spring' },
+  rag:       { label: 'RAG + Elasticsearch', cls: 'tag-rag' },
+  chroma:    { label: 'ChromaDB',          cls: 'tag-chroma' },
+  api:       { label: 'REST API',          cls: 'tag-api' },
+  rdbms:     { label: 'RDBMS / JPA',       cls: 'tag-rdbms' },
+  lombok:    { label: 'Lombok',            cls: 'tag-lombok' },
+  annot:     { label: 'Annotations',       cls: 'tag-annot' },
+  aop:       { label: 'AOP',               cls: 'tag-aop' },
+  streaming: { label: 'Streaming',         cls: 'tag-streaming' },
+  concur:    { label: 'Concurrency',       cls: 'tag-concur' },
+};
+
+const QUESTIONS = [
+  // ========================= JAVA 21 =========================
+  {
+    id: 1, category: 'java', difficulty: 'med',
+    prompt: 'Which statement about Java 21 virtual threads is correct?',
+    code: `ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor();
+for (int i = 0; i &lt; 10_000; i++) {
+    exec.submit(() -> {
+        Thread.sleep(Duration.ofSeconds(1));   // blocking I/O
+        return callDownstreamService();
+    });
+}`,
+    options: [
+      'Virtual threads require rewriting blocking I/O to reactive; this code will deadlock.',
+      'Virtual threads are lightweight and multiplex onto carrier platform threads; this is the idiomatic use case and scales to millions of concurrent tasks.',
+      'Virtual threads are created one-per-OS-thread, so 10,000 threads will exhaust OS resources.',
+      'Virtual threads can only be used inside Spring WebFlux; this code requires a reactive context.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Virtual threads were introduced as <a href="https://openjdk.org/jeps/444" target="_blank">JEP 444</a> in Java 21. They are managed by the JVM and park on blocking calls, unlike platform threads. This is explicitly the "thread-per-request" pattern the JEP was designed for.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Virtual threads were designed specifically so blocking code does not need to be rewritten. When a virtual thread blocks (e.g. <code>Thread.sleep</code>, socket read), it unmounts from its carrier and the carrier is freed for other work. See the <a href="https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html" target="_blank">Oracle virtual threads guide</a>.' },
+      { right: true,  text: 'Correct. This is the textbook virtual-thread pattern: many short-lived, I/O-bound tasks. The JVM parks blocked virtual threads off-carrier, so only a handful of OS threads are consumed even with 10,000 concurrent tasks. Reference: <a href="https://openjdk.org/jeps/444" target="_blank">JEP 444</a>.' },
+      { right: false, text: 'Incorrect. Virtual threads are <em>not</em> mapped 1:1 to OS threads — that is the defining difference from platform threads. A single carrier platform thread can run thousands of virtual threads over its lifetime. See the <a href="https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html" target="_blank">JDK 21 concurrency guide</a>.' },
+      { right: false, text: 'Incorrect. Virtual threads are a JDK feature, not a Spring feature. They work in any Java context. Spring Boot 3.2+ <em>uses</em> them when you set <code>spring.threads.virtual.enabled=true</code>, but they are not required to be inside WebFlux. See <a href="https://spring.io/blog/2023/11/23/spring-boot-3-2-0-available-now" target="_blank">Spring Boot 3.2 release notes</a>.' },
+    ]
+  },
+  {
+    id: 2, category: 'java', difficulty: 'med',
+    prompt: 'What does this Java 21 pattern-matching switch do?',
+    code: `static String describe(Object obj) {
+    return switch (obj) {
+        case Integer i when i &gt; 0 -> "positive int: " + i;
+        case Integer i              -> "non-positive int";
+        case String s               -> "string of length " + s.length();
+        case null                   -> "null value";
+        default                     -> "unknown";
+    };
+}`,
+    options: [
+      'Pattern matching in switch is not available in Java 21; this requires Java 22 preview.',
+      'This is valid Java 21. It matches on type, supports <code>when</code> guards, handles <code>null</code> explicitly, and returns a String via arrow-form switch expression.',
+      'The <code>when</code> clause is invalid — guards must use <code>instanceof</code> instead.',
+      'The <code>case null</code> branch will never execute because switch always throws NPE on null.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Pattern matching for <code>switch</code> was finalized in <a href="https://openjdk.org/jeps/441" target="_blank">JEP 441</a> (Java 21). It supports type patterns, guarded patterns with <code>when</code>, null patterns, and switch expressions. It\'s one of the headline features of Java 21.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Pattern matching for switch was <em>finalized</em> in Java 21 after several preview rounds. See <a href="https://openjdk.org/jeps/441" target="_blank">JEP 441</a>.' },
+      { right: true,  text: 'Correct. All four features shown — type patterns, <code>when</code> guards, explicit <code>case null</code>, and arrow-form switch expression — are finalized in Java 21. Reference: <a href="https://docs.oracle.com/en/java/javase/21/language/pattern-matching.html" target="_blank">Oracle pattern matching guide</a>.' },
+      { right: false, text: 'Incorrect. <code>when</code> is the Java 21 syntax for guarded patterns in switch. Using <code>instanceof</code> would be redundant since the type pattern already establishes the type. See <a href="https://openjdk.org/jeps/441" target="_blank">JEP 441</a>.' },
+      { right: false, text: 'Incorrect. The pre-Java 21 behavior was indeed to NPE on null switch subject, but <em>with</em> a <code>case null</code> branch, switch handles null explicitly. If there is no <code>case null</code>, NPE is thrown as before. See <a href="https://openjdk.org/jeps/441" target="_blank">JEP 441, "Null patterns"</a>.' },
+    ]
+  },
+  {
+    id: 3, category: 'java', difficulty: 'hard',
+    prompt: 'Which statement about Java 21 sequenced collections is correct?',
+    options: [
+      'The new <code>SequencedCollection</code> interface adds methods like <code>addFirst</code>, <code>addLast</code>, <code>reversed()</code> to collections with a defined encounter order.',
+      '<code>HashSet</code> now extends <code>SequencedCollection</code> and maintains insertion order.',
+      '<code>SequencedCollection</code> replaces <code>List</code> and <code>Deque</code>, which are deprecated in Java 21.',
+      'Sequenced collections only work with primitive types for performance reasons.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'This is <a href="https://openjdk.org/jeps/431" target="_blank">JEP 431</a>. It introduces <code>SequencedCollection</code>, <code>SequencedSet</code>, and <code>SequencedMap</code> as new interfaces that unify access to collections which <em>have</em> an encounter order — <code>List</code>, <code>Deque</code>, <code>LinkedHashSet</code>, <code>LinkedHashMap</code>, etc. Unordered collections like <code>HashSet</code> are not changed.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. <code>SequencedCollection</code> provides <code>addFirst/Last</code>, <code>getFirst/Last</code>, <code>removeFirst/Last</code>, and <code>reversed()</code>. It\'s implemented by collections that already have a defined order (<code>List</code>, <code>Deque</code>, <code>LinkedHashSet</code>, etc.). See <a href="https://openjdk.org/jeps/431" target="_blank">JEP 431</a>.' },
+      { right: false, text: 'Incorrect. <code>HashSet</code> has no defined encounter order, so it does <em>not</em> implement <code>SequencedSet</code>. <code>LinkedHashSet</code> does. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/SequencedSet.html" target="_blank">SequencedSet Javadoc</a>.' },
+      { right: false, text: 'Incorrect. Sequenced collections are <em>additions</em> to the collection hierarchy, not replacements. <code>List</code> and <code>Deque</code> are fully supported and now <em>extend</em> <code>SequencedCollection</code>. See the <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/SequencedCollection.html" target="_blank">SequencedCollection Javadoc</a>.' },
+      { right: false, text: 'Incorrect. Sequenced collections work with any reference type — <code>SequencedCollection&lt;E&gt;</code> is generic. Primitive specialization is unrelated. See <a href="https://openjdk.org/jeps/431" target="_blank">JEP 431</a>.' },
+    ]
+  },
+  {
+    id: 4, category: 'java', difficulty: 'easy',
+    prompt: 'What is the purpose of Java 21 records?',
+    code: `public record Money(BigDecimal amount, Currency currency) {
+    public Money {
+        Objects.requireNonNull(amount);
+        if (amount.signum() &lt; 0) throw new IllegalArgumentException();
+    }
+}`,
+    options: [
+      'Records replace Lombok entirely; all entity classes should be records.',
+      'Records are concise immutable data carriers; the compiler generates <code>equals</code>, <code>hashCode</code>, <code>toString</code>, and accessors. They work well for DTOs, value objects, and query results.',
+      'Records are mutable classes with implicit setters.',
+      'Records only work with primitive fields and cannot contain objects.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Records were finalized in <a href="https://openjdk.org/jeps/395" target="_blank">JEP 395</a> (Java 16). They are excellent for DTOs, value objects, and JPA projections. Note that JPA entities should generally not be records because JPA requires a no-arg constructor and mutable state for lazy loading.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Records cover only immutable value types. Lombok also generates builders, logging, and mutable POJOs — use cases records cannot address. See <a href="https://projectlombok.org/features/Data" target="_blank">Lombok @Data</a> for mutable cases.' },
+      { right: true,  text: 'Correct. Records are perfect for DTOs, API responses, query projections, and value objects. The compact constructor form (shown) lets you add validation. See the <a href="https://docs.oracle.com/en/java/javase/21/language/records.html" target="_blank">Records language guide</a>.' },
+      { right: false, text: 'Incorrect. Records are <em>implicitly final and immutable</em>. There are no setters. All fields are <code>private final</code>. See <a href="https://openjdk.org/jeps/395" target="_blank">JEP 395</a>.' },
+      { right: false, text: 'Incorrect. Record components can be any type, including primitives, objects, collections, and generics. See <a href="https://docs.oracle.com/en/java/javase/21/language/records.html" target="_blank">Records guide</a>.' },
+    ]
+  },
+
+  // ========================= SPRING BOOT 3 =========================
+  {
+    id: 5, category: 'spring', difficulty: 'med',
+    prompt: 'In Spring Boot 3.x, which is the preferred way to inject a <code>UserRepository</code> into a service?',
+    code: `// Option A
+@Service
+public class UserService {
+    @Autowired private UserRepository userRepository;
+}
+
+// Option B
+@Service
+@RequiredArgsConstructor
+public class UserService {
+    private final UserRepository userRepository;
+}
+
+// Option C
+@Service
+public class UserService {
+    @Autowired
+    public void setUserRepository(UserRepository r) { this.userRepository = r; }
+    private UserRepository userRepository;
+}`,
+    options: [
+      'A — field injection, because it is the shortest.',
+      'B — constructor injection via Lombok-generated constructor, because fields are <code>final</code>, testable without reflection, and fail-fast on missing beans.',
+      'C — setter injection, because it allows runtime swapping.',
+      'All three are equivalent in Spring Boot 3.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Spring has <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html#beans-setter-injection" target="_blank">recommended constructor injection</a> since Spring 4.3. Spring Boot 3 made this the de-facto standard — single-constructor classes need no <code>@Autowired</code>. Lombok&rsquo;s <code>@RequiredArgsConstructor</code> generates the constructor for all <code>final</code> fields.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Field injection is actively discouraged: it requires reflection, cannot produce a fully-constructed object without Spring, forbids <code>final</code> fields, and masks missing dependencies until runtime. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html" target="_blank">Spring DI docs</a>.' },
+      { right: true,  text: 'Correct. Constructor injection enforces immutability (<code>final</code>), makes the class trivially unit-testable (just <code>new UserService(mock)</code>), and fails at startup if a dependency is missing. Lombok\'s <code>@RequiredArgsConstructor</code> removes the boilerplate. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html" target="_blank">Spring docs</a> and <a href="https://projectlombok.org/features/constructor" target="_blank">Lombok RequiredArgsConstructor</a>.' },
+      { right: false, text: 'Incorrect. Setter injection is only appropriate for genuinely optional dependencies. For mandatory ones, it introduces the same failure mode as field injection (NPE at runtime if setter not called). See <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html#beans-setter-injection" target="_blank">Spring DI docs</a>.' },
+      { right: false, text: 'Incorrect. While all three compile, they have materially different testability, immutability, and failure-mode properties.' },
+    ]
+  },
+  {
+    id: 6, category: 'spring', difficulty: 'med',
+    prompt: 'In Spring Boot 3.x, which annotation set correctly configures a REST controller that returns JSON with proper validation and error handling?',
+    code: `@RestController
+@RequestMapping("/api/v1/users")
+@Validated
+public class UserController {
+
+    @PostMapping
+    public ResponseEntity&lt;UserResponse&gt; create(
+            @Valid @RequestBody CreateUserRequest req) {
+        UserResponse created = userService.create(req);
+        return ResponseEntity
+            .status(HttpStatus.CREATED)
+            .body(created);
+    }
+}`,
+    options: [
+      '<code>@Controller</code> should be used instead of <code>@RestController</code> — otherwise JSON is not returned.',
+      '<code>@Valid</code> triggers JSR-380/Jakarta Bean Validation on the request body; <code>@RequestBody</code> deserializes JSON; <code>@RestController</code> implies <code>@ResponseBody</code>. The response returns <code>201 Created</code> with the created resource.',
+      '<code>@Validated</code> at the class level is required for <code>@Valid</code> to work on a <code>@RequestBody</code>.',
+      '<code>ResponseEntity</code> is deprecated in Spring Boot 3; use <code>ProblemDetail</code> instead.',
+    ],
+    correct: 1,
+    hint: {
+      text: '<code>@RestController</code> = <code>@Controller</code> + <code>@ResponseBody</code>. <code>@Valid</code> triggers Bean Validation on the JSON body. <code>@Validated</code> is for <em>method-level</em> validation of individual parameters (like <code>@Min</code> on a path var). <code>ResponseEntity</code> gives explicit control over status codes and headers. See the <a href="https://docs.spring.io/spring-framework/reference/web/webmvc.html" target="_blank">Spring MVC docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Controller</code> returns view names; JSON would require adding <code>@ResponseBody</code> to every method. <code>@RestController</code> is the correct shorthand. See <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller.html" target="_blank">Spring @RestController docs</a>.' },
+      { right: true,  text: 'Correct on all counts. <code>@Valid</code> triggers Bean Validation on the body, <code>@RequestBody</code> does JSON deserialization, <code>@RestController</code> bundles <code>@Controller</code> + <code>@ResponseBody</code>, and the POST correctly returns 201 with the new entity. See <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-methods/requestbody.html" target="_blank">@RequestBody docs</a> and <a href="https://beanvalidation.org/3.0/" target="_blank">Jakarta Bean Validation 3.0</a>.' },
+      { right: false, text: 'Incorrect. <code>@Valid</code> works on <code>@RequestBody</code> without needing <code>@Validated</code> at the class level. <code>@Validated</code> is needed when you want to validate simple method params (e.g., <code>@PathVariable @Min(1) Long id</code>). See <a href="https://docs.spring.io/spring-framework/reference/core/validation/beanvalidation.html" target="_blank">Bean Validation in Spring</a>.' },
+      { right: false, text: 'Incorrect. <code>ResponseEntity</code> is not deprecated. <code>ProblemDetail</code> (RFC 7807) is a new Spring 6 class specifically for error responses, but it coexists with — and is often wrapped in — <code>ResponseEntity</code>. See <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html" target="_blank">Error Responses docs</a>.' },
+    ]
+  },
+  {
+    id: 7, category: 'spring', difficulty: 'hard',
+    prompt: 'You want to enable virtual threads in Spring Boot 3.2+ for handling incoming HTTP requests. What is the correct configuration?',
+    options: [
+      'Add <code>spring.threads.virtual.enabled=true</code> to <code>application.properties</code>. Spring Boot wires virtual threads into Tomcat request handling, <code>@Async</code>, and task executors automatically.',
+      'Virtual threads cannot be used in Spring MVC — only in Spring WebFlux.',
+      'You must replace Tomcat with Undertow because Tomcat does not support virtual threads.',
+      'You must manually call <code>Thread.ofVirtual().start()</code> in every controller method.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'Spring Boot 3.2 introduced first-class support for virtual threads with a single property. This is covered in the <a href="https://spring.io/blog/2023/11/23/spring-boot-3-2-0-available-now" target="_blank">3.2 release announcement</a> and the <a href="https://docs.spring.io/spring-boot/docs/3.2.x/reference/html/features.html#features.task-execution-and-scheduling" target="_blank">task execution docs</a>.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. <code>spring.threads.virtual.enabled=true</code> switches Tomcat\'s request-handling executor, <code>@Async</code>, and scheduled-task executors to virtual threads. See <a href="https://docs.spring.io/spring-boot/docs/3.2.x/reference/html/features.html#features.task-execution-and-scheduling" target="_blank">Spring Boot 3.2 task execution docs</a>.' },
+      { right: false, text: 'Incorrect. Virtual threads are ideal for the synchronous, blocking programming model of Spring MVC — one thread per request, but now cheap. WebFlux doesn\'t need virtual threads because it already avoids blocking via Reactor. See the <a href="https://spring.io/blog/2023/09/09/all-together-now-spring-boot-3-2-graalvm-native-images-java-21-and" target="_blank">Spring blog on virtual threads</a>.' },
+      { right: false, text: 'Incorrect. Tomcat 10.1 (bundled with Spring Boot 3.2) supports virtual threads via its <code>VirtualThreadExecutor</code>. See the <a href="https://tomcat.apache.org/tomcat-10.1-doc/config/executor.html" target="_blank">Tomcat executor docs</a>.' },
+      { right: false, text: 'Incorrect. Spring Boot handles virtual thread creation for you when the flag is enabled. Calling <code>Thread.ofVirtual().start()</code> in a controller creates threads that Spring does not track and can leak.' },
+    ]
+  },
+  {
+    id: 8, category: 'spring', difficulty: 'med',
+    prompt: 'Which <code>application.yml</code> configuration is the best practice for externalizing secrets and environment-specific config in Spring Boot 3?',
+    options: [
+      'Commit secrets directly to <code>application.yml</code> encoded in base64 — the base64 makes them safe.',
+      'Use <code>${VAR:default}</code> placeholders for environment-specific values, rely on Spring profiles (<code>application-prod.yml</code>) for per-environment config, and source secrets from a secrets manager (Vault, AWS Secrets Manager) or environment variables — never the repo.',
+      'Hardcode production secrets but add <code>application.yml</code> to <code>.gitignore</code>.',
+      'Spring Boot requires all configuration in one <code>application.yml</code>; profiles are not supported.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Spring Boot has a well-defined <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config" target="_blank">property-source hierarchy</a>: env vars &gt; command-line args &gt; profile-specific YAML &gt; default YAML. Secrets should never be in source control regardless of encoding.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Base64 is an encoding, not encryption — anyone can decode it in one line. Committing secrets, encoded or not, puts them in git history forever. Use a secrets manager. See <a href="https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html" target="_blank">OWASP Secrets Management</a>.' },
+      { right: true,  text: 'Correct. This is the recommended layered approach: <code>${DB_PASSWORD:localdev}</code> placeholders + profile YAMLs + external secrets manager. Spring Boot resolves env vars with highest precedence. See <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config" target="_blank">External Configuration</a> and <a href="https://docs.spring.io/spring-cloud-vault/docs/current/reference/html/" target="_blank">Spring Cloud Vault</a>.' },
+      { right: false, text: 'Incorrect. <code>.gitignore</code> only prevents adding a file <em>going forward</em>. If the file was ever committed, the secret is in the git history. Also, you now have no reliable way to share config with teammates. See <a href="https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html" target="_blank">OWASP guide</a>.' },
+      { right: false, text: 'Incorrect. Spring Boot has robust <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.profiles" target="_blank">profile support</a> via <code>application-{profile}.yml</code>. Activate with <code>--spring.profiles.active=prod</code>.' },
+    ]
+  },
+
+  // ========================= RAG + ELASTICSEARCH =========================
+  {
+    id: 9, category: 'rag', difficulty: 'med',
+    prompt: 'Which Elasticsearch mapping correctly configures a field for kNN vector search with 768-dim embeddings and cosine similarity?',
+    code: `PUT /knowledge
+{
+  "mappings": {
+    "properties": {
+      "text":      { "type": "text" },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 768,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": { "type": "hnsw", "m": 16, "ef_construction": 100 }
+      }
+    }
+  }
+}`,
+    options: [
+      'Incorrect — <code>dense_vector</code> requires <code>index: false</code> for kNN queries.',
+      'Correct. <code>dense_vector</code> with <code>index: true</code>, <code>dims</code> matching the embedding model, and <code>similarity</code> selecting the distance metric enables HNSW-backed kNN. <code>m</code> and <code>ef_construction</code> tune the graph.',
+      'Incorrect — <code>similarity</code> must be <code>bm25</code>.',
+      '<code>dense_vector</code> is a ChromaDB field type; Elasticsearch uses <code>knn_vector</code>.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See the <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html" target="_blank">dense_vector field type docs</a>. <code>index: true</code> builds the HNSW graph. <code>similarity</code> is one of <code>cosine</code>, <code>dot_product</code>, <code>l2_norm</code>, <code>max_inner_product</code>. <code>dims</code> must exactly match your embedding model output size.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>index: false</code> stores the vector but does <em>not</em> build an HNSW graph — kNN would have to brute-force. You want <code>index: true</code>. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html#index-vectors-knn-search" target="_blank">Elasticsearch kNN docs</a>.' },
+      { right: true,  text: 'Correct. All four settings — <code>dims: 768</code>, <code>index: true</code>, <code>similarity: cosine</code>, and HNSW <code>index_options</code> — are required for high-performance vector search. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html" target="_blank">dense_vector docs</a> and the <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/knn-search.html" target="_blank">kNN search docs</a>.' },
+      { right: false, text: 'Incorrect. <code>bm25</code> is a <em>keyword</em> similarity algorithm for <code>text</code> fields. Vector similarity options are <code>cosine</code>, <code>dot_product</code>, <code>l2_norm</code>, <code>max_inner_product</code>. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html#dense-vector-similarity" target="_blank">dense_vector similarity</a>.' },
+      { right: false, text: 'Incorrect. <code>dense_vector</code> is an Elasticsearch field type. ChromaDB uses its own collection API and does not use Elasticsearch mapping syntax. See <a href="https://docs.trychroma.com/usage-guide" target="_blank">ChromaDB docs</a>.' },
+    ]
+  },
+  {
+    id: 10, category: 'rag', difficulty: 'hard',
+    prompt: 'You want hybrid search combining BM25 and vector similarity in Elasticsearch 8.14+. Which approach is considered the current best practice?',
+    options: [
+      'Run two separate queries, normalize scores manually, and weighted-sum them in application code.',
+      'Use Elasticsearch\'s built-in <code>rrf</code> retriever to fuse BM25 and kNN result rankings via Reciprocal Rank Fusion (k=60 default).',
+      'Concatenate the query vector and the query text into a single string and use a plain <code>match</code> query.',
+      'Elasticsearch does not support hybrid search; switch to OpenSearch.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Reciprocal Rank Fusion (RRF) is the industry-standard algorithm for combining rankings from heterogeneous retrievers. It uses ranks, not raw scores, avoiding score-normalization problems. Elasticsearch added a native <code>rrf</code> retriever in 8.14. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html" target="_blank">RRF docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Manual score normalization is brittle — BM25 scores can range 0-30, cosine 0-1, and picking weights is a tuning nightmare. RRF sidesteps this by using only ranks. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html" target="_blank">RRF reference</a>.' },
+      { right: true,  text: 'Correct. The <code>rrf</code> retriever runs both sub-retrievers in parallel and fuses their rankings via <code>1/(k + rank)</code> with <code>k=60</code> by default. It\'s the canonical hybrid search pattern. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html" target="_blank">RRF docs</a> and the <a href="https://www.elastic.co/blog/whats-new-elasticsearch-platform-8-14-0" target="_blank">8.14 release blog</a>.' },
+      { right: false, text: 'Incorrect. Vectors are float arrays, not text; they cannot be serialized into a text query and keyword-matched meaningfully. Hybrid means <em>two</em> queries (one BM25, one kNN) fused into one result list.' },
+      { right: false, text: 'Incorrect. Both Elasticsearch and OpenSearch support hybrid search natively. Elasticsearch has the <code>rrf</code> retriever since 8.14; OpenSearch has a hybrid query and normalization processor since 2.11.' },
+    ]
+  },
+  {
+    id: 11, category: 'rag', difficulty: 'med',
+    prompt: 'What is the most common cause of "my RAG retrieves irrelevant chunks" in a new RAG system?',
+    options: [
+      'The LLM is too small; upgrade to a larger model.',
+      'Chunk size is wrong (too large or too small) and/or chunks split mid-sentence without overlap, breaking semantic units.',
+      'Elasticsearch is too slow; switch to a dedicated vector database.',
+      'The vector dimension should always be 1024; 768 is insufficient for modern use cases.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Retrieval quality issues are almost always a chunking or embedding-model problem — not a DB choice or LLM size. Rule of thumb: 300-800 token chunks, 10-20% overlap, split at semantic boundaries (paragraph / sentence). See <a href="https://www.pinecone.io/learn/chunking-strategies/" target="_blank">chunking strategies</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. LLM size affects <em>answer synthesis</em> quality, not retrieval. If the retrieved chunks are irrelevant, no LLM — however large — can produce the correct answer from them. Fix retrieval first.' },
+      { right: true,  text: 'Correct. Chunking is the most consequential choice in RAG. A 3000-token chunk smears semantics; a 50-token chunk loses context. Splitting mid-sentence loses meaning. Use a recursive or semantic splitter with overlap. See <a href="https://python.langchain.com/docs/modules/data_connection/document_transformers/" target="_blank">LangChain text splitters</a>.' },
+      { right: false, text: 'Incorrect. Elasticsearch HNSW kNN returns results in milliseconds even at 10M+ vectors. Latency is rarely the issue; relevance is. See <a href="https://www.elastic.co/search-labs/blog/benchmarking-elasticsearch-hnsw" target="_blank">ES vector benchmarks</a>.' },
+      { right: false, text: 'Incorrect. 768 dimensions (e.g., <code>bge-base-en-v1.5</code>) is used by excellent modern embedding models and is sufficient for the vast majority of RAG systems. Larger isn\'t always better — larger vectors cost more to store and search. See the <a href="https://huggingface.co/spaces/mteb/leaderboard" target="_blank">MTEB leaderboard</a>.' },
+    ]
+  },
+
+  // ========================= CHROMADB =========================
+  {
+    id: 12, category: 'chroma', difficulty: 'med',
+    prompt: 'You are choosing between Elasticsearch and ChromaDB for a RAG system. Which statement most accurately describes ChromaDB\'s positioning?',
+    options: [
+      'ChromaDB is strictly superior and should always be used over Elasticsearch.',
+      'ChromaDB is a purpose-built open-source vector database optimized for developer ergonomics and Python-centric workflows. It excels at quick prototyping and smaller-to-medium corpora. Elasticsearch is a mature general-purpose search engine with hybrid search, rich filtering, and battle-tested ops, better for production-scale and hybrid keyword+vector needs.',
+      'ChromaDB and Elasticsearch are identical — the choice is purely aesthetic.',
+      'ChromaDB supports only exact-match search, not vector similarity.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'ChromaDB (<a href="https://www.trychroma.com/" target="_blank">trychroma.com</a>) is a vector-database-first system: easy Python API, embedded or client-server mode, built for RAG workflows. Elasticsearch is a general search platform that added vector search. The right choice depends on your scale, team, and need for keyword search alongside vectors.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Tool choice depends on scale, existing stack, and operational constraints. A Spring Boot team already running Elasticsearch will usually stay on ES; a Python startup will often start with Chroma.' },
+      { right: true,  text: 'Correct — this captures the real tradeoff. Chroma has excellent DX for Python RAG prototyping, Elasticsearch has broader enterprise features and scales to billions of docs with hybrid search. See <a href="https://docs.trychroma.com/" target="_blank">Chroma docs</a> and <a href="https://www.elastic.co/search-labs/blog/rag-with-elasticsearch" target="_blank">ES RAG guide</a>.' },
+      { right: false, text: 'Incorrect. They differ significantly in architecture, query model, operational complexity, and ecosystem integration.' },
+      { right: false, text: 'Incorrect. ChromaDB\'s primary feature is vector similarity search — that\'s its reason for existing. See <a href="https://docs.trychroma.com/usage-guide#querying-a-collection" target="_blank">Chroma querying docs</a>.' },
+    ]
+  },
+  {
+    id: 13, category: 'chroma', difficulty: 'easy',
+    prompt: 'Which Python snippet correctly adds documents to a ChromaDB collection with metadata for filtering?',
+    code: `import chromadb
+client = chromadb.HttpClient(host="localhost", port=8000)
+collection = client.get_or_create_collection(name="docs")
+
+collection.add(
+    ids=["d1", "d2", "d3"],
+    documents=["how shards work", "what is BM25", "kNN tutorial"],
+    metadatas=[
+        {"source": "elastic-internals.md", "section": "shards"},
+        {"source": "search-tips.md",       "section": "scoring"},
+        {"source": "rag-tutorial.md",      "section": "vectors"},
+    ],
+)`,
+    options: [
+      'This is wrong — ChromaDB requires a separate <code>metadata</code> parameter, not <code>metadatas</code>.',
+      'This is wrong — ChromaDB does not support metadata; only text and IDs.',
+      'This is correct and idiomatic. <code>ids</code>, <code>documents</code>, and <code>metadatas</code> are parallel lists. You can later filter queries with <code>where={"source": "elastic-internals.md"}</code>.',
+      'This is wrong — Chroma requires manual embedding; you must pass <code>embeddings=[...]</code>.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'See the <a href="https://docs.trychroma.com/usage-guide#adding-data-to-a-collection" target="_blank">Chroma "adding data" docs</a>. ChromaDB auto-embeds documents using a default function if you don\'t pass <code>embeddings</code>. Metadata is used for filtering at query time with the <code>where</code> parameter.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. The parameter is <code>metadatas</code> (plural, one per document). See <a href="https://docs.trychroma.com/usage-guide#adding-data-to-a-collection" target="_blank">Chroma add() docs</a>.' },
+      { right: false, text: 'Incorrect. Metadata is a first-class Chroma feature used for filtering. See <a href="https://docs.trychroma.com/usage-guide#using-where-filters" target="_blank">where filters</a>.' },
+      { right: true,  text: 'Correct. Chroma uses parallel lists for <code>ids</code>, <code>documents</code>, and <code>metadatas</code>. You can query with a filter like <code>collection.query(query_texts=["..."], where={"section":"shards"})</code>. See <a href="https://docs.trychroma.com/usage-guide" target="_blank">Chroma usage guide</a>.' },
+      { right: false, text: 'Incorrect. If you don\'t pass <code>embeddings</code>, Chroma uses its default embedding function (the <code>all-MiniLM-L6-v2</code> sentence-transformer). You <em>can</em> pass pre-computed embeddings for custom models. See <a href="https://docs.trychroma.com/embeddings" target="_blank">Chroma embeddings docs</a>.' },
+    ]
+  },
+
+  // ========================= REST API DESIGN =========================
+  {
+    id: 14, category: 'api', difficulty: 'med',
+    prompt: 'Which response best represents a well-designed REST API error for a validation failure?',
+    options: [
+      `<pre class="code">HTTP 200 OK
+{ "error": "validation failed", "success": false }</pre>`,
+      `<pre class="code">HTTP 400 Bad Request
+Content-Type: application/problem+json
+{
+  "type":   "https://example.com/errors/validation",
+  "title":  "Validation Failed",
+  "status": 400,
+  "detail": "2 fields have invalid values",
+  "instance": "/api/v1/users",
+  "errors": [
+    { "field": "email",    "message": "must be a valid email" },
+    { "field": "age",      "message": "must be >= 18" }
+  ]
+}</pre>`,
+      `<pre class="code">HTTP 500 Internal Server Error
+"email invalid, age too low"</pre>`,
+      `<pre class="code">HTTP 400 Bad Request
+{ "msg": "error" }</pre>`,
+    ],
+    correct: 1,
+    hint: {
+      text: 'Use correct HTTP status codes (4xx for client errors, 5xx for server errors — never 200 for errors). Follow <a href="https://datatracker.ietf.org/doc/html/rfc7807" target="_blank">RFC 7807 Problem Details</a> which Spring 6 supports natively via <code>ProblemDetail</code>. Include enough information to act on but no internal stack traces.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Returning 200 for an error is a cardinal sin — it breaks every HTTP-aware client (retry logic, monitoring, log aggregation). Status codes exist for this reason. See <a href="https://datatracker.ietf.org/doc/html/rfc9110#section-15.5" target="_blank">RFC 9110 4xx section</a>.' },
+      { right: true,  text: 'Correct. 400 is the right status, <code>application/problem+json</code> follows <a href="https://datatracker.ietf.org/doc/html/rfc7807" target="_blank">RFC 7807</a>, and the per-field error array gives the client actionable detail. Spring 6+ has built-in <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html" target="_blank">ProblemDetail support</a>.' },
+      { right: false, text: 'Incorrect. A validation failure is a client error (4xx), not a server error (5xx). Returning 500 makes ops teams debug the wrong thing. Also, a plain string body is not a typed, parseable response. See <a href="https://datatracker.ietf.org/doc/html/rfc9110#section-15.6" target="_blank">RFC 9110 5xx</a>.' },
+      { right: false, text: 'Incorrect. The status is correct but the body is useless — the client cannot tell the user <em>which</em> field is wrong or <em>why</em>. Include structured error detail.' },
+    ]
+  },
+  {
+    id: 15, category: 'api', difficulty: 'med',
+    prompt: 'Your Spring Boot API needs to return a paginated list of users. Which response envelope is most idiomatic?',
+    options: [
+      `<pre class="code">// Option A — return raw list
+GET /api/v1/users
+HTTP 200 [ {"id":1,...}, {"id":2,...}, ... ]</pre>`,
+      `<pre class="code">// Option B — return wrapped response with page metadata
+GET /api/v1/users?page=0&size=20
+HTTP 200
+{
+  "content": [ {...}, {...} ],
+  "page": { "number": 0, "size": 20, "totalElements": 142, "totalPages": 8 },
+  "_links": {
+    "self": { "href": "/api/v1/users?page=0&size=20" },
+    "next": { "href": "/api/v1/users?page=1&size=20" }
+  }
+}</pre>`,
+      'Return all users in one response and let the client paginate on its side.',
+      'Use <code>GET /users/page/0</code> with path variables; query parameters are discouraged for pagination.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Spring Data\'s <code>Page&lt;T&gt;</code> serializes to a similar envelope. For links, use HATEOAS or HAL. Exposing total count helps the client render "page 3 of 8" UIs. Using query params for pagination is the <a href="https://jsonapi.org/format/#fetching-pagination" target="_blank">JSON:API convention</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. A raw array gives no page size, total count, or next-link. The client cannot know whether more data exists. It also makes it impossible to evolve the envelope without breaking existing clients.' },
+      { right: true,  text: 'Correct. This matches the de-facto Spring Data <code>Page</code> serialization, provides totals for UI rendering, and includes HATEOAS-style navigation links. See <a href="https://docs.spring.io/spring-data/commons/docs/current/reference/html/#repositories.core-concepts" target="_blank">Spring Data paging</a> and <a href="https://docs.spring.io/spring-hateoas/docs/current/reference/html/" target="_blank">Spring HATEOAS</a>.' },
+      { right: false, text: 'Incorrect. Fetching millions of rows in a single response crashes the server, blows through memory, and times out. Server-side pagination is mandatory for any non-trivial resource.' },
+      { right: false, text: 'Incorrect. Query parameters are the REST convention for pagination, filtering, and sorting — they don\'t identify a resource, they modify the request. Path segments identify resources. See <a href="https://jsonapi.org/format/#fetching-pagination" target="_blank">JSON:API</a>.' },
+    ]
+  },
+
+  // ========================= RDBMS / JPA =========================
+  {
+    id: 16, category: 'rdbms', difficulty: 'hard',
+    prompt: 'Look at this JPA entity and repository usage. What is the problem and how do you fix it?',
+    code: `@Entity
+public class Order {
+    @Id Long id;
+    @OneToMany(mappedBy = "order") List&lt;OrderItem&gt; items;
+    @ManyToOne Customer customer;
+}
+
+@Repository
+public interface OrderRepository extends JpaRepository&lt;Order, Long&gt; {}
+
+// Service
+public List&lt;OrderDto&gt; getAllOrders() {
+    return orderRepo.findAll().stream()
+        .map(o -&gt; new OrderDto(o.getId(), o.getCustomer().getName(),
+                              o.getItems().size()))
+        .toList();
+}`,
+    options: [
+      'No problem; this is idiomatic JPA.',
+      'N+1 query problem: <code>findAll()</code> issues 1 query for orders, then for each order it lazy-loads the customer (N queries) and items (N more queries). Fix with <code>@EntityGraph</code>, a <code>JOIN FETCH</code> JPQL query, or a JPA projection / DTO query.',
+      'The entity needs <code>@NoArgsConstructor</code> from Lombok.',
+      'The repository must extend <code>CrudRepository</code>, not <code>JpaRepository</code>.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Classic N+1: one query fetches N parent rows, then for each parent row another query fires for a lazy association. The <a href="https://vladmihalcea.com/n-plus-1-query-problem/" target="_blank">Vlad Mihalcea blog</a> is the canonical reference. Fix options: <code>@EntityGraph</code>, <code>JOIN FETCH</code>, DTO projections.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. This is one of the most famous JPA anti-patterns. See <a href="https://vladmihalcea.com/n-plus-1-query-problem/" target="_blank">N+1 explained</a>.' },
+      { right: true,  text: 'Correct. The fix options in order of preference: (a) <code>@EntityGraph(attributePaths = {"customer", "items"})</code> on a repo method — simplest; (b) JPQL <code>SELECT o FROM Order o JOIN FETCH o.customer LEFT JOIN FETCH o.items</code>; (c) Project straight to a DTO via constructor expression or <code>@Query</code>. See <a href="https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.entity-graph" target="_blank">Spring Data EntityGraph</a> and <a href="https://thorben-janssen.com/hibernate-tip-join-fetch-multiple-entities/" target="_blank">Thorben Janssen on JOIN FETCH</a>.' },
+      { right: false, text: 'Incorrect. JPA requires a no-arg constructor but it can be generated by Lombok or written manually. The issue in this code is the N+1 query pattern, not the constructor.' },
+      { right: false, text: 'Incorrect. <code>JpaRepository</code> extends <code>CrudRepository</code> and adds JPA-specific methods. Using it is fine. See <a href="https://docs.spring.io/spring-data/jpa/docs/current/api/org/springframework/data/jpa/repository/JpaRepository.html" target="_blank">JpaRepository Javadoc</a>.' },
+    ]
+  },
+  {
+    id: 17, category: 'rdbms', difficulty: 'med',
+    prompt: 'You need to update 500,000 rows to set <code>status = \'ARCHIVED\'</code> where <code>created &lt; 2023-01-01</code>. Your service loads them as JPA entities and modifies each in a loop. Why is this problematic, and what is the right approach?',
+    options: [
+      'It\'s fine — the JPA L1 cache will optimize it.',
+      'Problematic: each entity materialization, dirty-check, UPDATE SQL, and flush is expensive; 500k operations can take hours and consume heap. Better: a single bulk UPDATE via JPQL (<code>@Modifying @Query("UPDATE Order o SET o.status = :s WHERE o.created &lt; :d")</code>) or native SQL, wrapped in a transaction.',
+      'JPA does not support updates; use JDBC directly for all updates.',
+      'Use <code>SELECT FOR UPDATE</code> on each row.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'JPA entity-by-entity updates are intended for small, business-logic-rich changes. For bulk updates where business logic is simple, use a single set-based SQL/JPQL statement. See <a href="https://vladmihalcea.com/jpa-query-modifying-update/" target="_blank">Vlad Mihalcea on JPA bulk UPDATE</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. The L1 cache (persistence context) actually makes this <em>worse</em> — every modified entity is tracked, growing memory linearly with N. You\'d need to periodically flush and clear the context, and even then, row-by-row performance is poor.' },
+      { right: true,  text: 'Correct. A bulk UPDATE bypasses entity materialization, dirty-checking, and cascade logic — running a single SQL UPDATE that the DB executes efficiently. Remember to invalidate the L1 cache afterwards if you continue working with the same entities. See <a href="https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.modifying-queries" target="_blank">@Modifying docs</a>.' },
+      { right: false, text: 'Incorrect. JPA supports UPDATE via JPQL <code>UPDATE</code> statements in <code>@Modifying</code> queries.' },
+      { right: false, text: 'Incorrect. <code>SELECT FOR UPDATE</code> acquires row locks — on 500k rows, this will lock out other transactions and deadlock readily. It\'s for concurrent-modification prevention, not bulk updates.' },
+    ]
+  },
+  {
+    id: 18, category: 'rdbms', difficulty: 'easy',
+    prompt: 'Which Spring Boot annotation correctly marks a service method as transactional with read-only behavior?',
+    code: `@Service
+public class ReportService {
+    @Transactional(readOnly = true)
+    public ReportDto generateReport(Long id) { ... }
+}`,
+    options: [
+      'Use <code>@Transactional(readOnly = true)</code> from <code>org.springframework.transaction.annotation</code>. This signals to the JDBC driver / Hibernate to skip dirty-checking, enable certain optimizations, and route to read replicas if configured.',
+      'Use <code>@ReadOnly</code> — <code>@Transactional</code> does not support read-only.',
+      'Read-only is a database-level setting, not a Spring feature.',
+      'Use <code>@Transactional(readOnly = true)</code> from <code>javax.transaction</code>.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'Use the Spring annotation (<code>org.springframework.transaction.annotation.Transactional</code>), not the Jakarta EE one. The Spring version supports <code>readOnly</code>, <code>propagation</code>, <code>isolation</code>, <code>timeout</code>, and rollback rules. See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html" target="_blank">Spring @Transactional docs</a>.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. Spring\'s <code>@Transactional(readOnly = true)</code> enables Hibernate to skip dirty-checking, avoid flushing, and — with Spring Data multi-DB setup — route to a read replica. See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html" target="_blank">Spring @Transactional</a> and <a href="https://thorben-janssen.com/how-hibernate-uses-read-only-transactions/" target="_blank">Thorben Janssen on read-only transactions</a>.' },
+      { right: false, text: 'Incorrect. <code>@ReadOnly</code> is not a standard Spring annotation; use <code>@Transactional(readOnly = true)</code>.' },
+      { right: false, text: 'Incorrect. While databases support read-only transactions too, Spring\'s <code>@Transactional</code> is the declarative way to request one and also triggers framework-level optimizations.' },
+      { right: false, text: 'Incorrect. The <code>javax.transaction.Transactional</code> (now <code>jakarta.transaction.Transactional</code>) lacks <code>readOnly</code>. Use the Spring version. See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html#transaction-declarative-annotations" target="_blank">Spring @Transactional vs JTA @Transactional</a>.' },
+    ]
+  },
+
+  // ========================= LOMBOK =========================
+  {
+    id: 19, category: 'lombok', difficulty: 'med',
+    prompt: 'Which Lombok annotation is the best default for a Spring Boot service class with <code>final</code> dependencies?',
+    options: [
+      '<code>@Data</code> — generates everything.',
+      '<code>@RequiredArgsConstructor</code> — generates a constructor for all <code>final</code> fields, enabling Spring constructor injection without boilerplate.',
+      '<code>@AllArgsConstructor</code> — generates a constructor for ALL fields regardless of finality.',
+      '<code>@Setter</code> — allows Spring to call setters for injection.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'For Spring services, you want constructor injection of <code>final</code> dependencies — not setters, not full <code>@Data</code> (which also adds equals/hashCode/toString that are rarely needed on service classes and can create circular-reference bugs). <a href="https://projectlombok.org/features/constructor" target="_blank">@RequiredArgsConstructor</a> is the right fit.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Data</code> generates <code>equals</code>, <code>hashCode</code>, <code>toString</code>, <code>@RequiredArgsConstructor</code>, and setters + getters. On a <em>service</em> class this is wasteful: no one compares services by value or mutates them. Reserve <code>@Data</code> for DTOs and value objects. See <a href="https://projectlombok.org/features/Data" target="_blank">@Data docs</a>.' },
+      { right: true,  text: 'Correct. <code>@RequiredArgsConstructor</code> generates exactly one constructor for all <code>final</code> fields, which Spring uses for autowiring. Clean, no boilerplate, no surprise accessors. See <a href="https://projectlombok.org/features/constructor" target="_blank">Lombok constructor docs</a>.' },
+      { right: false, text: 'Incorrect. <code>@AllArgsConstructor</code> includes non-final fields that typically should not be injected (e.g., transient state). For DI, restrict to final fields via <code>@RequiredArgsConstructor</code>.' },
+      { right: false, text: 'Incorrect. Generating setters encourages setter injection, which is strongly discouraged for mandatory dependencies. See the constructor injection rationale in <a href="https://docs.spring.io/spring-framework/reference/core/beans/dependencies/factory-collaborators.html#beans-constructor-injection" target="_blank">Spring docs</a>.' },
+    ]
+  },
+  {
+    id: 20, category: 'lombok', difficulty: 'hard',
+    prompt: 'Which statement about using <code>@Data</code> on a JPA entity is most accurate?',
+    options: [
+      '<code>@Data</code> is perfect for JPA entities — use it on every entity.',
+      '<code>@Data</code> on a JPA entity is dangerous because the generated <code>equals</code>/<code>hashCode</code> use all fields (including lazy associations), which triggers lazy loading and infinite recursion on bidirectional relationships. Better: <code>@Getter @Setter</code> plus a manual <code>equals</code>/<code>hashCode</code> based on the ID (or a business key).',
+      'Lombok cannot be used with JPA entities.',
+      '<code>@Data</code> makes JPA entities automatically thread-safe.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'There is a <em>long</em> history of this bug. See Vlad Mihalcea\'s <a href="https://vladmihalcea.com/the-best-way-to-implement-equals-hashcode-and-tostring-with-jpa-and-hibernate/" target="_blank">equals/hashCode for JPA entities</a>. <code>@Data</code>\'s <code>toString</code> also traverses all associations and can cause <code>LazyInitializationException</code>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Data</code> generates an <code>equals</code>/<code>hashCode</code>/<code>toString</code> that traverse all fields — a known footgun for JPA entities. See <a href="https://vladmihalcea.com/the-best-way-to-implement-equals-hashcode-and-tostring-with-jpa-and-hibernate/" target="_blank">Vlad Mihalcea\'s entity guide</a>.' },
+      { right: true,  text: 'Correct. The idiomatic fix is <code>@Getter @Setter @NoArgsConstructor</code> on the entity, plus a hand-written <code>equals</code>/<code>hashCode</code> keyed on the ID (guarding against null id for new entities) and a <code>@ToString(onlyExplicitlyIncluded = true)</code> to avoid lazy traversal. See <a href="https://vladmihalcea.com/the-best-way-to-implement-equals-hashcode-and-tostring-with-jpa-and-hibernate/" target="_blank">Vlad Mihalcea</a> and <a href="https://projectlombok.org/features/ToString" target="_blank">Lombok @ToString</a>.' },
+      { right: false, text: 'Incorrect. Lombok is widely used with JPA entities — just not via <code>@Data</code>. <code>@Getter @Setter</code> are fine.' },
+      { right: false, text: 'Incorrect. Lombok has nothing to do with thread safety. JPA entities are not thread-safe regardless of Lombok. See the <a href="https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#transactions" target="_blank">Hibernate transactions guide</a>.' },
+    ]
+  },
+
+  // ========================= ANNOTATIONS =========================
+  {
+    id: 21, category: 'annot', difficulty: 'med',
+    prompt: 'What is the difference between <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, and <code>@Controller</code>?',
+    options: [
+      'They are identical — <code>@Service</code> etc. are just aliases for <code>@Component</code>.',
+      'All four make Spring register the class as a bean. The specialized variants add semantics: <code>@Repository</code> adds JPA exception translation; <code>@Controller</code>/<code>@RestController</code> enable Spring MVC request mapping; <code>@Service</code> is purely semantic. Using the specific one documents intent and may enable framework-specific behavior.',
+      '<code>@Service</code> is deprecated in Spring Boot 3.',
+      'You must use <code>@Component</code> on services to enable transactions.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'All four derive from <code>@Component</code> and get picked up by component scanning. But they carry different <em>semantics</em> — and <code>@Repository</code> and <code>@Controller</code> also trigger framework-specific post-processing. See the <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html#beans-stereotype-annotations" target="_blank">Spring stereotype annotations docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. While all derive from <code>@Component</code>, <code>@Repository</code> triggers <code>PersistenceExceptionTranslationPostProcessor</code> (converts vendor-specific SQL exceptions to Spring\'s <code>DataAccessException</code>), and <code>@Controller</code>/<code>@RestController</code> integrate with Spring MVC. See <a href="https://docs.spring.io/spring-framework/reference/data-access/orm/hibernate.html#orm-hibernate-exceptions" target="_blank">Spring persistence exception translation</a>.' },
+      { right: true,  text: 'Correct. Using the right stereotype documents the layer and unlocks framework features. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html#beans-stereotype-annotations" target="_blank">Spring stereotype docs</a> and the <a href="https://docs.spring.io/spring-framework/reference/data-access/orm/hibernate.html#orm-hibernate-exceptions" target="_blank">@Repository benefit</a>.' },
+      { right: false, text: 'Incorrect. <code>@Service</code> is fully supported and idiomatic in Spring Boot 3.' },
+      { right: false, text: 'Incorrect. Transactions are enabled by <code>@EnableTransactionManagement</code> (or Spring Boot auto-config) and <code>@Transactional</code> — not by the stereotype annotation.' },
+    ]
+  },
+  {
+    id: 22, category: 'annot', difficulty: 'hard',
+    prompt: 'What is a meta-annotation in Spring? Pick the best example.',
+    code: `// Your custom annotation
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
+@Retryable(maxAttempts = 3, backoff = @Backoff(delay = 200))
+public @interface AuditedTransaction { }
+
+// Usage in your service
+@AuditedTransaction
+public void transfer(Long fromId, Long toId, BigDecimal amount) { ... }`,
+    options: [
+      'Meta-annotations are forbidden in Spring.',
+      'A meta-annotation is an annotation applied to another annotation. Spring reads meta-annotations, so <code>@AuditedTransaction</code> effectively carries <code>@Transactional</code> + <code>@Retryable</code>. This is how you encapsulate cross-cutting concerns into a single team-owned annotation.',
+      'Meta-annotations only work on classes, not methods.',
+      'Only <code>@Retention</code> and <code>@Target</code> can be used as meta-annotations.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Spring\'s <code>AnnotatedElementUtils</code> recursively resolves meta-annotations. This is how stereotypes like <code>@RestController</code> (which meta-annotates <code>@Controller</code> + <code>@ResponseBody</code>) work. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html#beans-meta-annotations" target="_blank">Spring meta-annotations docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Meta-annotations are first-class in Spring — <code>@RestController</code>, <code>@SpringBootApplication</code>, and many others <em>are</em> composed meta-annotations.' },
+      { right: true,  text: 'Correct. Composed annotations are a powerful pattern for DRY cross-cutting concerns. Teams define domain-specific annotations like <code>@AuditedTransaction</code> or <code>@RateLimitedEndpoint</code>. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html#beans-meta-annotations" target="_blank">Spring meta-annotations</a> and the JDK <a href="https://docs.oracle.com/javase/tutorial/java/annotations/predefined.html" target="_blank">annotation tutorial</a>.' },
+      { right: false, text: 'Incorrect. Meta-annotations work on any target element where the underlying annotations are valid.' },
+      { right: false, text: 'Incorrect. Any runtime-retained annotation can be used as a meta-annotation. <code>@Retention</code> and <code>@Target</code> are JDK meta-annotations specifying where an annotation can appear, but they aren\'t the only ones.' },
+    ]
+  },
+
+  // ========================= AOP =========================
+  {
+    id: 23, category: 'aop', difficulty: 'med',
+    prompt: 'Which statement about this Spring AOP aspect is correct?',
+    code: `@Aspect
+@Component
+@Slf4j
+public class LoggingAspect {
+
+    @Around("@annotation(com.example.Timed)")
+    public Object timeMethod(ProceedingJoinPoint pjp) throws Throwable {
+        long start = System.nanoTime();
+        try {
+            return pjp.proceed();
+        } finally {
+            long ms = (System.nanoTime() - start) / 1_000_000;
+            log.info("{} took {} ms", pjp.getSignature().toShortString(), ms);
+        }
+    }
+}`,
+    options: [
+      'Spring AOP intercepts calls through proxies, so self-invocation (calling another <code>@Timed</code> method on <code>this</code>) bypasses the aspect. The fix is to invoke via the injected bean (or <code>AopContext.currentProxy()</code> / <code>@Lookup</code>).',
+      'Spring AOP works by modifying bytecode at compile time.',
+      '<code>ProceedingJoinPoint</code> must be the first parameter or the aspect throws <code>AspectException</code>.',
+      '<code>@Around</code> cannot be used with <code>@annotation</code> pointcuts.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'Spring AOP uses <a href="https://docs.spring.io/spring-framework/reference/core/aop/proxying.html" target="_blank">JDK dynamic proxies or CGLIB subclasses</a>. This means only calls <em>through the proxy</em> are intercepted. Self-invocation (<code>this.method()</code>) bypasses advice — a common footgun with <code>@Transactional</code>, <code>@Async</code>, <code>@Cacheable</code>, and custom aspects.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. Because Spring AOP is proxy-based, <code>this.timedMethod()</code> goes straight to the method and skips the proxy. Fix: inject the bean into itself (e.g., <code>@Autowired SelfRef self;</code>) and call <code>self.timedMethod()</code>, or use AspectJ compile-time weaving for true method-level interception. See <a href="https://docs.spring.io/spring-framework/reference/core/aop/proxying.html" target="_blank">Spring AOP proxies</a> and <a href="https://www.baeldung.com/spring-aop-self-invocation" target="_blank">Baeldung on self-invocation</a>.' },
+      { right: false, text: 'Incorrect. Spring AOP is <em>runtime</em> proxy-based, not compile-time. AspectJ supports compile-time and load-time weaving, but plain Spring AOP does not. See <a href="https://docs.spring.io/spring-framework/reference/core/aop/introduction-spring-aop.html" target="_blank">Spring AOP introduction</a>.' },
+      { right: false, text: 'Incorrect. For <code>@Around</code> advice, <code>ProceedingJoinPoint</code> <em>is</em> typically the first parameter, but that\'s a convention — there\'s no specific <code>AspectException</code>. See <a href="https://docs.spring.io/spring-framework/reference/core/aop/ataspectj/advice.html#aop-ataspectj-advice-proceeding-join-point" target="_blank">Around advice docs</a>.' },
+      { right: false, text: 'Incorrect. <code>@Around("@annotation(...)")</code> is a very common and supported pointcut expression. See <a href="https://docs.spring.io/spring-framework/reference/core/aop/ataspectj/pointcuts.html#aop-pointcuts-designators" target="_blank">Pointcut designators</a>.' },
+    ]
+  },
+  {
+    id: 24, category: 'aop', difficulty: 'hard',
+    prompt: 'Which real-world concern is AOP <em>best</em> suited to handle, vs. which should you solve another way?',
+    options: [
+      'Everything should be in AOP — controllers, services, repositories.',
+      'AOP shines for cross-cutting concerns that don\'t belong in business code: logging, metrics/timing, security checks, caching, transactions, and retries. It\'s a poor fit for business logic, data mapping, or anything that should be explicit and easy to trace — those belong in regular methods.',
+      'AOP must be used for all validation.',
+      'AOP replaces interfaces and is used for all polymorphism.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'AOP is a scalpel, not a hammer. Use it when (a) the concern is truly orthogonal to business logic, (b) it would otherwise be duplicated across many classes, and (c) the indirection is worth hiding. See <a href="https://martinfowler.com/bliki/AspectOrientedProgramming.html" target="_blank">Martin Fowler on AOP</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Overusing AOP buries logic behind invisible pointcuts and makes debugging a nightmare. Keep business logic explicit.' },
+      { right: true,  text: 'Correct. Classic AOP use cases are exactly what Spring provides pre-built aspects for: <code>@Transactional</code>, <code>@Cacheable</code>, <code>@Secured</code>, <code>@Retryable</code>, <code>@Async</code>. Custom aspects are great for timing, audit logging, and rate limiting. See <a href="https://docs.spring.io/spring-framework/reference/core/aop.html" target="_blank">Spring AOP docs</a>.' },
+      { right: false, text: 'Incorrect. Spring already provides Bean Validation (<code>@Valid</code>, JSR-380) which is more declarative and testable than AOP for most validation. Reserve AOP for genuinely orthogonal concerns.' },
+      { right: false, text: 'Incorrect. Polymorphism is a fundamental OO mechanism. AOP complements it for cross-cutting concerns but does not replace it.' },
+    ]
+  },
+
+  // ========================= STREAMING =========================
+  {
+    id: 25, category: 'streaming', difficulty: 'med',
+    prompt: 'Which Spring approach is correct for streaming a very large CSV download to the client without loading the entire result set into memory?',
+    code: `@RestController
+public class ReportController {
+    @GetMapping(value = "/report.csv",
+                produces = "text/csv")
+    public StreamingResponseBody stream() {
+        return os -&gt; {
+            try (Stream&lt;Order&gt; stream = orderRepo.streamAllByStatus("ACTIVE");
+                 PrintWriter w = new PrintWriter(os)) {
+                w.println("id,customer,amount");
+                stream.forEach(o -&gt; w.printf("%d,%s,%s%n",
+                    o.getId(), o.getCustomer(), o.getAmount()));
+            }
+        };
+    }
+}`,
+    options: [
+      'Load all orders into a <code>List</code>, then join with <code>\\n</code>, then return the String.',
+      'Return <code>StreamingResponseBody</code> (or <code>ResponseBodyEmitter</code>), iterate a <code>Stream&lt;T&gt;</code> repository method inside a transactional read, and write to the output stream. Memory stays constant regardless of row count.',
+      'Spring cannot stream large responses; use a separate file-export microservice.',
+      'Use WebFlux — Spring MVC cannot stream.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Spring MVC supports streaming via <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-async.html#mvc-ann-async-http-streaming" target="_blank">StreamingResponseBody</a>. Combine with a JPA <code>Stream&lt;T&gt;</code> method (requires an open transaction and scroll-based cursors) for true constant-memory streaming. See <a href="https://docs.spring.io/spring-data/jpa/docs/current/reference/html/#jpa.query-methods.query-creation" target="_blank">Spring Data streaming</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. This buffers the entire result in memory — for 10M rows it blows the heap. The whole point of streaming is <em>not</em> to do this.' },
+      { right: true,  text: 'Correct. <code>StreamingResponseBody</code> releases the Servlet container thread while the async callback writes to the output stream. Paired with a transactional <code>Stream&lt;T&gt;</code> repository method (Hibernate uses a scrollable cursor), memory is O(1). See <a href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-async.html#mvc-ann-async-http-streaming" target="_blank">StreamingResponseBody docs</a>.' },
+      { right: false, text: 'Incorrect. Spring MVC streams large responses just fine with <code>StreamingResponseBody</code>. No separate service needed.' },
+      { right: false, text: 'Incorrect. Both MVC and WebFlux support streaming. WebFlux uses <code>Flux&lt;T&gt;</code> natively; MVC uses <code>StreamingResponseBody</code> / <code>ResponseBodyEmitter</code>.' },
+    ]
+  },
+  {
+    id: 26, category: 'streaming', difficulty: 'hard',
+    prompt: 'You use Java Streams to process a list of 10M transactions and sum their amounts. Which implementation is idiomatic and correct?',
+    code: `// Option A
+BigDecimal total = transactions.stream()
+    .map(Transaction::amount)
+    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+// Option B
+BigDecimal total = BigDecimal.ZERO;
+for (Transaction t : transactions) total = total.add(t.amount());
+
+// Option C
+BigDecimal total = transactions.parallelStream()
+    .map(Transaction::amount)
+    .reduce(BigDecimal.ZERO, BigDecimal::add);`,
+    options: [
+      'A is best — sequential streams always outperform parallel streams.',
+      'A and B are both correct; C (parallel stream) is <em>only</em> a win for CPU-bound work with a large dataset, and <code>BigDecimal::add</code> is cheap enough that the fork-join overhead can make C slower than A. Benchmark before parallelizing.',
+      'C is best because parallel is always faster.',
+      'B is wrong because you cannot use a <code>for</code> loop over a <code>List</code>.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Parallel streams use the common ForkJoinPool. They help when the per-element work is expensive (heavy computation), the source splits efficiently, and the reduction is associative. For a cheap operation like <code>BigDecimal::add</code>, the overhead of forking tasks can exceed the savings. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/package-summary.html" target="_blank">Java Streams docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Parallel streams can be significantly faster for CPU-intensive per-element work. The claim that sequential is always faster is wrong.' },
+      { right: true,  text: 'Correct. All three compute the correct sum. The choice is about performance tradeoffs. Parallel streams are a win only when per-element cost &times; element count &gt; fork-join overhead. Always benchmark. See <a href="https://dzone.com/articles/think-twice-using-java-8" target="_blank">When to use parallel streams</a>.' },
+      { right: false, text: 'Incorrect. Parallel adds fork/join/merge overhead. For cheap reductions, it often loses to sequential streams. The common ForkJoinPool is also shared across the JVM — heavy use can starve other parallel operations.' },
+      { right: false, text: 'Incorrect. Enhanced <code>for</code> loops over <code>Iterable</code> (including <code>List</code>) are always valid. See <a href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-14.html#jls-14.14.2" target="_blank">JLS 14.14.2</a>.' },
+    ]
+  },
+
+  // ========================= CONCURRENCY =========================
+  {
+    id: 27, category: 'concur', difficulty: 'hard',
+    prompt: 'Given two remote calls that can run in parallel, which <code>CompletableFuture</code> implementation is correct and efficient?',
+    code: `// Option A
+User user        = userService.fetch(id);          // blocking
+Account account  = accountService.fetch(id);      // blocking
+return new UserWithAccount(user, account);
+
+// Option B
+CompletableFuture&lt;User&gt;    fu = CompletableFuture.supplyAsync(() -&gt; userService.fetch(id),    executor);
+CompletableFuture&lt;Account&gt; fa = CompletableFuture.supplyAsync(() -&gt; accountService.fetch(id), executor);
+return fu.thenCombine(fa, UserWithAccount::new).join();
+
+// Option C
+CompletableFuture&lt;User&gt; fu    = CompletableFuture.supplyAsync(() -&gt; userService.fetch(id));
+User user = fu.join();
+CompletableFuture&lt;Account&gt; fa = CompletableFuture.supplyAsync(() -&gt; accountService.fetch(id));
+Account account = fa.join();
+return new UserWithAccount(user, account);`,
+    options: [
+      'A is fine — sequential blocking is simple.',
+      'B is correct: both calls run concurrently on a dedicated executor, combined with <code>thenCombine</code>. Total latency = max(latency_user, latency_account) + combine overhead.',
+      'C is the same as B — both do the work concurrently.',
+      'C is correct because each future has its own <code>join</code> call.',
+    ],
+    correct: 1,
+    hint: {
+      text: '<code>CompletableFuture.supplyAsync</code> submits work to an executor and returns immediately. The work doesn\'t start running in parallel until <em>both</em> are submitted. If you <code>join</code> on the first before submitting the second (Option C), you\'ve serialized them. Also, always pass an explicit <code>Executor</code> — the default common ForkJoinPool is inappropriate for blocking I/O. See the <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html" target="_blank">CompletableFuture docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Sequential blocking means total latency = latency_user + latency_account. If each call is 300 ms, you wait 600 ms instead of 300 ms.' },
+      { right: true,  text: 'Correct. Both <code>supplyAsync</code> calls submit immediately; the executor runs them in parallel; <code>thenCombine</code> produces the combined result when both complete. Passing an explicit executor isolates this work from the common pool. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#supplyAsync(java.util.function.Supplier,java.util.concurrent.Executor)" target="_blank">supplyAsync</a> and <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#thenCombine(java.util.concurrent.CompletionStage,java.util.function.BiFunction)" target="_blank">thenCombine</a>.' },
+      { right: false, text: 'Incorrect. In C, <code>fu.join()</code> <em>blocks</em> until the user fetch completes, and only <em>then</em> does the account fetch start. This is sequential, not parallel. The two futures are only useful if submitted before any <code>join</code>.' },
+      { right: false, text: 'Incorrect. The <code>join</code> call forces the current thread to wait for that future, defeating concurrency when done before the second <code>supplyAsync</code>.' },
+    ]
+  },
+  {
+    id: 28, category: 'concur', difficulty: 'hard',
+    prompt: 'When using <code>CompletableFuture.supplyAsync(task)</code> without passing an <code>Executor</code>, which executor runs the task — and why might that be a problem?',
+    options: [
+      'A newly-created single thread; each task gets its own thread.',
+      'The default is the <code>ForkJoinPool.commonPool()</code>. If the task does blocking I/O, you can starve the common pool and block other parts of the application (parallel streams, other <code>CompletableFuture</code> chains) that share it. Best practice: pass an explicit <code>Executor</code> sized for your workload.',
+      'The main thread — it is synchronous by default.',
+      'A single shared thread managed by the JVM.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'The common ForkJoinPool is sized to <code>availableProcessors() - 1</code> by default — tiny. It\'s intended for CPU-bound work. Mixing blocking I/O into it is a well-known footgun. See Brian Goetz\'s <a href="https://blogs.oracle.com/javamagazine/post/java-completablefuture-programming" target="_blank">article on CompletableFuture</a> and the <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.html#commonPool()" target="_blank">commonPool docs</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. A new thread per task would be wasteful and unscalable. <code>supplyAsync</code> uses a pool.' },
+      { right: true,  text: 'Correct. The common ForkJoinPool has very few threads and is shared JVM-wide. Blocking I/O on it starves parallel streams, other CFs, and Java 21 <code>Stream.toList</code> parallel collectors. Always pass an explicit <code>Executor</code> for I/O — or use virtual threads (Java 21) via <code>Executors.newVirtualThreadPerTaskExecutor()</code>. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#supplyAsync(java.util.function.Supplier)" target="_blank">supplyAsync default executor</a>.' },
+      { right: false, text: 'Incorrect. <code>supplyAsync</code> submits asynchronously — that\'s the "Async" in the name. <code>supply</code> (no Async) would run on the calling thread.' },
+      { right: false, text: 'Incorrect. It\'s a pool, not a single shared thread.' },
+    ]
+  },
+  {
+    id: 29, category: 'concur', difficulty: 'med',
+    prompt: 'A colleague writes <code>Thread.sleep(1000)</code> inside a <code>@Async</code>-annotated Spring method that is called 1000 times per second. With platform threads, this crashes the app. What is the recommended Java 21 / Spring Boot 3.2+ fix?',
+    options: [
+      'Remove the sleep — sleep is always wrong.',
+      'Use <code>Thread.ofVirtual().start(...)</code> inside the method.',
+      'Enable <code>spring.threads.virtual.enabled=true</code> (Spring Boot 3.2+), which switches the <code>@Async</code> executor to a virtual-thread executor. 1000 concurrent sleeps become cheap because virtual threads unmount when blocked.',
+      'Switch the application to WebFlux.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'Virtual threads (Java 21) are designed exactly for this: many concurrent tasks that spend most of their time blocked. Spring Boot 3.2+ automatically propagates the virtual-thread executor to <code>@Async</code>, the Tomcat request executor, and <code>@Scheduled</code> when you set the flag. See <a href="https://spring.io/blog/2023/11/23/spring-boot-3-2-0-available-now" target="_blank">Spring Boot 3.2 release notes</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. The sleep may represent a real wait — polling, backoff, rate limiting. The problem isn\'t sleep per se; it\'s that <em>blocking a platform thread is expensive</em>.' },
+      { right: false, text: 'Incorrect. Manually starting virtual threads inside a Spring-managed method bypasses Spring\'s executor management — exception handling, context propagation, and metrics are lost. Use the Spring property instead.' },
+      { right: true,  text: 'Correct. A single configuration flag makes Spring use <code>Executors.newVirtualThreadPerTaskExecutor()</code> for <code>@Async</code>, Tomcat requests, and <code>@Scheduled</code>. See <a href="https://docs.spring.io/spring-boot/docs/3.2.x/reference/html/features.html#features.task-execution-and-scheduling" target="_blank">Spring Boot 3.2 task execution</a> and <a href="https://openjdk.org/jeps/444" target="_blank">JEP 444</a>.' },
+      { right: false, text: 'Incorrect. WebFlux is a deep rewrite (reactive programming, no blocking calls allowed). Virtual threads solve the same scaling problem without abandoning the imperative programming model.' },
+    ]
+  },
+  {
+    id: 30, category: 'concur', difficulty: 'med',
+    prompt: 'You need to call 10 independent remote services and combine their results. Which pattern is cleanest in Java 21 + Spring Boot 3.2?',
+    options: [
+      'Call them one after another in a <code>for</code> loop.',
+      'Use a custom hand-rolled <code>ExecutorService</code> + <code>Future.get()</code> per task.',
+      'Use <code>CompletableFuture.allOf(...)</code> with <code>supplyAsync</code> on a virtual-thread executor, then combine when all complete. Clean, scalable, and each blocked call is cheap.',
+      'Use <code>synchronized</code> blocks to serialize the calls.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'For a fan-out of independent tasks, <code>CompletableFuture.allOf</code> on a virtual-thread executor combines the ergonomics of <code>CompletableFuture</code> with the cheapness of virtual threads. Java 21 also introduced <a href="https://openjdk.org/jeps/453" target="_blank">Structured Concurrency (preview, JEP 453)</a> for even cleaner code in the future.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Sequential calls = sum of latencies. If each takes 200 ms, 10 calls take 2 seconds. Parallel, it\'s 200 ms.' },
+      { right: false, text: 'Incorrect. While functional, managing a raw <code>ExecutorService</code> and calling <code>Future.get()</code> on each has more boilerplate, weaker composition (no <code>thenCombine</code>, <code>exceptionally</code>), and doesn\'t integrate naturally with Spring. <code>CompletableFuture</code> is preferred.' },
+      { right: true,  text: 'Correct. <code>CompletableFuture.allOf(f1, f2, ..., f10)</code> returns a CF that completes when all 10 complete. Using a virtual-thread executor keeps memory flat even if each call blocks for seconds. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#allOf(java.util.concurrent.CompletableFuture...)" target="_blank">allOf docs</a>. For structured concurrency, watch <a href="https://openjdk.org/jeps/453" target="_blank">JEP 453</a>.' },
+      { right: false, text: 'Incorrect. <code>synchronized</code> serializes access — the opposite of what you want for independent parallel calls.' },
+    ]
+  },
+  // ========================= JAVA 21 (more) =========================
+  {
+    id: 31, category: 'java', difficulty: 'easy',
+    prompt: 'What does the Java 21 <code>String.formatted()</code> method do?',
+    code: `String msg = "Hello %s, you have %d new messages".formatted("Ava", 3);
+// msg => "Hello Ava, you have 3 new messages"`,
+    options: [
+      '<code>formatted()</code> is equivalent to <code>String.format(this, args)</code> — a fluent alternative to static <code>String.format</code>.',
+      'It strips all whitespace from the string.',
+      'It base64-encodes the string.',
+      'It validates the string against a regex.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'Added in Java 15 (<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html#formatted(java.lang.Object...)" target="_blank">String.formatted Javadoc</a>), carried into Java 21. It is identical to <code>String.format(this, args)</code> but reads more naturally in fluent code.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. <code>"template".formatted(args)</code> is a shortcut for <code>String.format("template", args)</code>, enabling a more readable chain. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/String.html#formatted(java.lang.Object...)" target="_blank">Javadoc</a>.' },
+      { right: false, text: 'Incorrect. <code>strip()</code> removes whitespace. <code>formatted</code> does printf-style substitution.' },
+      { right: false, text: 'Incorrect. Base64 is in <code>java.util.Base64</code>. <code>formatted</code> is about printf formatting.' },
+      { right: false, text: 'Incorrect. Regex matching is <code>matches()</code>. <code>formatted</code> does string interpolation via format specifiers.' },
+    ]
+  },
+  {
+    id: 32, category: 'java', difficulty: 'hard',
+    prompt: 'Which is the correct way to declare a sealed class in Java 21?',
+    code: `public sealed interface Shape permits Circle, Square, Triangle {}
+
+public final class Circle   implements Shape { ... }
+public final class Square   implements Shape { ... }
+public non-sealed class Triangle implements Shape { ... }`,
+    options: [
+      'Incorrect — <code>sealed</code> is not a keyword; use <code>@Sealed</code> annotation instead.',
+      'Incorrect — every permitted subclass must be <code>final</code>.',
+      'Correct. Sealed types restrict which classes can extend/implement them. Each permitted subclass must be one of <code>final</code>, <code>sealed</code>, or <code>non-sealed</code>.',
+      'Incorrect — sealed types are only available in Java 22.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'Sealed types were finalized in Java 17 (<a href="https://openjdk.org/jeps/409" target="_blank">JEP 409</a>) and are fully available in Java 21. They pair with exhaustive switch patterns — the compiler knows the complete set of subtypes.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>sealed</code> is a real keyword, added in JDK 17. See <a href="https://openjdk.org/jeps/409" target="_blank">JEP 409</a>.' },
+      { right: false, text: 'Incorrect. Permitted subclasses can be <code>final</code> (closed), <code>sealed</code> (further restricted), OR <code>non-sealed</code> (re-open the hierarchy). See <a href="https://docs.oracle.com/en/java/javase/21/language/sealed-classes-and-interfaces.html" target="_blank">Sealed classes guide</a>.' },
+      { right: true,  text: 'Correct. This declaration is valid in Java 21. Sealed types enable exhaustive pattern matching — <code>switch(shape)</code> over all three subtypes needs no default branch. See <a href="https://openjdk.org/jeps/409" target="_blank">JEP 409</a>.' },
+      { right: false, text: 'Incorrect. Sealed types have been finalized since Java 17.' },
+    ]
+  },
+  {
+    id: 33, category: 'java', difficulty: 'med',
+    prompt: 'In Java 21, what is the key property of text blocks?',
+    code: `String json = """
+        {
+          "id": 42,
+          "name": "Ada"
+        }
+        """;`,
+    options: [
+      'Incidental leading whitespace is stripped so the JSON is not over-indented; line endings are normalized to <code>\\n</code>. Escape sequences for double quotes are not required inside the block.',
+      'Text blocks preserve all whitespace exactly, so the JSON keeps 8 spaces of leading indent.',
+      'Text blocks require escaping every newline with <code>\\n</code>.',
+      'Text blocks only work inside class-level fields, not local variables.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'Text blocks were finalized in <a href="https://openjdk.org/jeps/378" target="_blank">JEP 378</a> (Java 15). The compiler computes the minimum indent across all lines and strips that much from every line — so the JSON comes out nicely unindented. See the <a href="https://docs.oracle.com/en/java/javase/21/text-blocks/index.html" target="_blank">text blocks guide</a>.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. The compiler strips "incidental" leading whitespace (the common indentation), normalizes line terminators to <code>\\n</code>, and allows unescaped double quotes. See <a href="https://docs.oracle.com/en/java/javase/21/text-blocks/index.html" target="_blank">Oracle text blocks</a>.' },
+      { right: false, text: 'Incorrect. Incidental whitespace IS stripped — that\'s the defining feature of text blocks. If you need literal leading whitespace, indent the content <em>past</em> the closing <code>"""</code>.' },
+      { right: false, text: 'Incorrect. Text blocks preserve actual newlines in the source as <code>\\n</code> in the string. You do not escape them.' },
+      { right: false, text: 'Incorrect. Text blocks are just string literals; they work anywhere a string literal works.' },
+    ]
+  },
+
+  // ========================= SPRING BOOT 3 (more) =========================
+  {
+    id: 34, category: 'spring', difficulty: 'hard',
+    prompt: 'You have a Spring Boot app that needs to call <code>chargeCard()</code> and then <code>sendReceiptEmail()</code>. If the email fails, you do not want to roll back the charge. Which transaction configuration is correct?',
+    code: `@Service
+public class CheckoutService {
+    @Transactional
+    public void checkout(Order o) {
+        chargeCard(o);
+        try {
+            emailService.sendReceipt(o);
+        } catch (Exception e) {
+            log.warn("receipt email failed", e);
+        }
+    }
+}
+
+@Service
+public class EmailService {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendReceipt(Order o) { ... }
+}`,
+    options: [
+      'Default <code>@Transactional</code> on both methods is fine — exceptions inside <code>sendReceipt</code> do not propagate.',
+      'Wrong — <code>@Transactional</code> should be removed from <code>sendReceipt</code> entirely.',
+      'Correct. <code>Propagation.REQUIRES_NEW</code> on <code>sendReceipt</code> suspends the outer transaction and uses a new one; a rollback in the inner transaction does not affect the outer charge.',
+      'Use <code>Propagation.MANDATORY</code> on <code>sendReceipt</code> to detach from the outer transaction.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'Spring <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html" target="_blank">propagation modes</a> control how nested transactional calls interact. <code>REQUIRES_NEW</code> isolates the inner work; <code>REQUIRED</code> (default) joins the outer transaction so a rollback marks the outer as rollback-only.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Without <code>REQUIRES_NEW</code>, both methods share one transaction. If <code>sendReceipt</code> throws, Spring marks the outer transaction as rollback-only — your catch block would swallow the exception but the DB still rolls back (<code>UnexpectedRollbackException</code> on commit). See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html" target="_blank">propagation docs</a>.' },
+      { right: false, text: 'Incorrect. Removing <code>@Transactional</code> makes <code>sendReceipt</code> run in the outer transaction context — same problem as above.' },
+      { right: true,  text: 'Correct. <code>REQUIRES_NEW</code> physically suspends the outer transaction, starts an independent one, and commits/rolls back it in isolation. A failure in the inner does not affect the outer. Warning: this doubles connection usage during the nested call. See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html" target="_blank">Spring propagation</a>.' },
+      { right: false, text: 'Incorrect. <code>MANDATORY</code> requires an existing transaction and <em>joins</em> it. It does not detach. See <a href="https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html" target="_blank">Propagation.MANDATORY</a>.' },
+    ]
+  },
+  {
+    id: 35, category: 'spring', difficulty: 'med',
+    prompt: 'Which annotation correctly exposes Spring Boot Actuator health, metrics, and Prometheus endpoints in a production-hardened way?',
+    code: `# application.yml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true`,
+    options: [
+      'Set <code>management.endpoints.web.exposure.include=*</code> — expose everything.',
+      'Correct. Expose only needed endpoints, restrict health details to authorized users, and enable Kubernetes liveness/readiness probes. Add Micrometer + <code>micrometer-registry-prometheus</code> dependency for the Prometheus endpoint.',
+      'Disable Actuator entirely in production.',
+      'Move all endpoints to the default 8080 port — never use a separate management port.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html" target="_blank">Spring Boot Actuator docs</a>. The principle: expose only what you need, protect sensitive details, and use the dedicated Kubernetes probes endpoints. Consider running management on a separate port so external traffic cannot hit it.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>include: *</code> exposes <code>/heapdump</code>, <code>/threaddump</code>, <code>/env</code> (with passwords unless masked), and other endpoints that leak sensitive data if reached by attackers. Never in production. See <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.endpoints.exposing" target="_blank">endpoint exposure docs</a>.' },
+      { right: true,  text: 'Correct. Minimal exposure, authorized health details, and the dedicated <code>liveness</code>/<code>readiness</code> probes (which Kubernetes expects) are the production-ready defaults. Prometheus scrape target is enabled. See <a href="https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.endpoints.kubernetes-probes" target="_blank">Kubernetes probes</a>.' },
+      { right: false, text: 'Incorrect. Actuator is essential for observability — SRE teams need metrics, health probes, and traces. The fix is to configure it safely, not disable it.' },
+      { right: false, text: 'Incorrect. A separate management port (<code>management.server.port=9091</code>) is a common hardening step — only ops-network traffic reaches it. You keep the main app port for user traffic.' },
+    ]
+  },
+
+  // ========================= RAG + ELASTICSEARCH (more) =========================
+  {
+    id: 36, category: 'rag', difficulty: 'med',
+    prompt: 'What is the single most important thing to verify when ingesting embeddings into Elasticsearch for semantic search?',
+    options: [
+      'The index name is lowercase.',
+      'The <code>dense_vector</code> field dimension in the mapping exactly matches the embedding model\'s output dimension.',
+      'Every chunk has a UUID as its document ID.',
+      'The cluster has at least 3 master nodes.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'A dimension mismatch silently produces garbage: indexing fails or — worse — retrieval returns nothing useful. Always verify by sampling. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html#dense-vector-params" target="_blank">dense_vector params</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Index naming rules matter but are not the central correctness concern for vector search.' },
+      { right: true,  text: 'Correct. If you defined <code>dims: 768</code> but your model outputs 1024, ingest fails or retrieval produces bogus rankings. Worse, when switching models you must re-embed and reindex — there is no in-place migration. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html#dense-vector-params" target="_blank">dense_vector reference</a>.' },
+      { right: false, text: 'Incorrect. Using deterministic IDs (like <code>hash(doc_id, chunk_idx)</code>) is actually preferred over UUIDs — idempotent reingest overwrites the same doc instead of creating duplicates.' },
+      { right: false, text: 'Incorrect. Cluster topology matters for HA but not for vector-search correctness.' },
+    ]
+  },
+  {
+    id: 37, category: 'rag', difficulty: 'hard',
+    prompt: 'You observe that BM25 + kNN hybrid search works well, but some answers still look wrong because the LLM is picking the wrong chunk from a top-5 list. What is the usual fix?',
+    options: [
+      'Increase <code>num_candidates</code> to 10,000.',
+      'Add a <strong>reranker</strong> (cross-encoder model) that rescores the top N candidates using full query-document attention, typically pushing the correct chunk to position 1.',
+      'Switch embedding models every day.',
+      'Double the chunk size to give more context per chunk.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Bi-encoders (the embeddings that built your index) encode query and doc independently — fast but less accurate. Cross-encoders encode the pair together for scoring. Two-stage retrieval (fast bi-encoder retrieval + slow cross-encoder rerank of top N) is the industry standard. See <a href="https://www.sbert.net/examples/applications/retrieve_rerank/README.html" target="_blank">SBERT retrieve-then-rerank</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Increasing <code>num_candidates</code> helps retrieve the right chunk if it was being missed, but does not fix ranking issues within the candidate pool. Rerank does.' },
+      { right: true,  text: 'Correct. A cross-encoder (e.g., <code>BAAI/bge-reranker-base</code>, Cohere Rerank, or the Elasticsearch <code>text_similarity_reranker</code> retriever) rescores the top 20-50 candidates. The correct chunk typically moves into the top 3. Huge relevance gain for modest added latency. See <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/semantic-reranking.html" target="_blank">ES semantic reranking</a>.' },
+      { right: false, text: 'Incorrect. Changing models frequently means reindexing everything — embeddings from model A are not compatible with queries from model B.' },
+      { right: false, text: 'Incorrect. Larger chunks dilute semantics and blow the token budget at prompt time. Usually the fix is to go smaller + rerank, not larger.' },
+    ]
+  },
+
+  // ========================= REST API (more) =========================
+  {
+    id: 38, category: 'api', difficulty: 'easy',
+    prompt: 'Which HTTP status code is most appropriate when a client sends a valid request for a resource that does not exist?',
+    options: [
+      '404 Not Found',
+      '400 Bad Request',
+      '500 Internal Server Error',
+      '204 No Content',
+    ],
+    correct: 0,
+    hint: {
+      text: 'See <a href="https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.5" target="_blank">RFC 9110 §15.5.5</a>. 404 means "no representation for this target resource." 400 is for malformed requests; 500 is server failure; 204 is a successful response with no body.',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. 404 is the semantic fit for a well-formed request targeting a non-existent resource. See <a href="https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.5" target="_blank">RFC 9110</a>.' },
+      { right: false, text: 'Incorrect. 400 means the request itself is malformed (bad JSON, missing required field). The request here is syntactically fine; the resource just doesn\'t exist.' },
+      { right: false, text: 'Incorrect. 500 means the server encountered an unexpected condition. A missing resource is an expected condition, not a server fault.' },
+      { right: false, text: 'Incorrect. 204 is <em>success</em> with no body — used for things like successful DELETE. It\'s the opposite of what you want to communicate.' },
+    ]
+  },
+  {
+    id: 39, category: 'api', difficulty: 'med',
+    prompt: 'What is the right way to version a public REST API that may break backwards compatibility over time?',
+    options: [
+      'Never version — force all clients to migrate instantly.',
+      'Put the version in the URL path (<code>/api/v1/...</code>, <code>/api/v2/...</code>) or in a custom header (<code>Accept-Version: 2</code>), and document the support window and deprecation policy.',
+      'Use query parameters like <code>?version=2</code> and change behavior silently at any time.',
+      'Use different ports for different versions.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design#versioning-a-restful-web-api" target="_blank">Microsoft API design guide — versioning</a>. Path versioning (<code>/v1</code>) is pragmatic and visible. Media-type or custom-header versioning is more REST-purist. Both are legitimate — the key is to commit to <em>some</em> stable, documented scheme with a deprecation policy.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Real APIs evolve. Breaking changes without versioning breaks every consumer. A good versioning policy gives clients time to migrate.' },
+      { right: true,  text: 'Correct. Both path and header versioning are widely used. Publish a deprecation policy (e.g., "v1 supported for 12 months after v2 GA") and send <code>Deprecation</code> and <code>Sunset</code> response headers on outgoing v1 responses. See <a href="https://datatracker.ietf.org/doc/html/rfc8594" target="_blank">RFC 8594 Sunset Header</a>.' },
+      { right: false, text: 'Incorrect. Silent behavior changes on the same endpoint is the fastest way to break every consumer without warning. Versioning must be explicit.' },
+      { right: false, text: 'Incorrect. Different ports make deployment and DNS management messy. The version should be part of the API identity (URL or header), not the infrastructure.' },
+    ]
+  },
+
+  // ========================= RDBMS (more) =========================
+  {
+    id: 40, category: 'rdbms', difficulty: 'hard',
+    prompt: 'Your JPA entity uses <code>@GeneratedValue(strategy = GenerationType.IDENTITY)</code> with PostgreSQL. What is the hidden performance issue, and what is the fix?',
+    options: [
+      'No issue — <code>IDENTITY</code> is ideal.',
+      '<code>IDENTITY</code> disables JDBC batch inserts because Hibernate needs the generated ID immediately after each insert. For bulk insert throughput, use <code>GenerationType.SEQUENCE</code> with a pooled optimizer (<code>allocationSize &gt; 1</code>).',
+      'The fix is to use <code>@GeneratedValue(strategy = GenerationType.AUTO)</code>.',
+      'The fix is to remove <code>@Id</code> and let the database manage identity.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://vladmihalcea.com/hibernate-identity-sequence-and-table-sequence-generator/" target="_blank">Vlad Mihalcea on identity vs sequence</a>. <code>IDENTITY</code> forces one INSERT per SQL round-trip. <code>SEQUENCE</code> with <code>allocationSize=50</code> lets Hibernate preallocate 50 IDs and batch 50 inserts together — enormous throughput difference.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>IDENTITY</code> is simple but disables JDBC batch inserts. For high-throughput ingestion this is a significant bottleneck.' },
+      { right: true,  text: 'Correct. <code>@SequenceGenerator(name="seq", sequenceName="my_seq", allocationSize=50)</code> + <code>@GeneratedValue(generator="seq", strategy=SEQUENCE)</code> lets Hibernate fetch 50 IDs at once and batch inserts. See <a href="https://vladmihalcea.com/hibernate-identity-sequence-and-table-sequence-generator/" target="_blank">Vlad Mihalcea</a>.' },
+      { right: false, text: 'Incorrect. <code>AUTO</code> on PostgreSQL typically resolves to <code>SEQUENCE</code> but with <code>allocationSize=50</code> defaults in modern Hibernate — the point is to explicitly pick sequence with a pooled optimizer.' },
+      { right: false, text: 'Incorrect. Every JPA entity must have an <code>@Id</code>. You cannot remove it.' },
+    ]
+  },
+  {
+    id: 41, category: 'rdbms', difficulty: 'med',
+    prompt: 'Two users click "Withdraw $100" on a shared account simultaneously. How does optimistic locking in JPA prevent lost updates?',
+    code: `@Entity
+public class Account {
+    @Id Long id;
+    @Version Long version;     // OPTIMISTIC LOCKING
+    BigDecimal balance;
+}`,
+    options: [
+      'JPA acquires a database-level write lock on the row until the transaction commits.',
+      'When updating, JPA includes <code>WHERE version = :currentVersion</code> in the UPDATE. If the row was modified concurrently, 0 rows update and JPA throws <code>OptimisticLockException</code>, which the app should catch and retry.',
+      'JPA blocks the second transaction until the first commits.',
+      'JPA has no locking; you must use explicit <code>SELECT FOR UPDATE</code>.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#locking-optimistic" target="_blank">Hibernate locking guide</a>. The <code>@Version</code> field is incremented on every update, and the UPDATE statement includes the old version in the WHERE clause. Concurrent update = version mismatch = 0 rows affected = exception.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. That describes <em>pessimistic</em> locking (<code>SELECT FOR UPDATE</code>), not optimistic. Optimistic locking never holds a DB lock.' },
+      { right: true,  text: 'Correct. Optimistic locking is lock-free: both transactions read version N, one commits (version becomes N+1), the other\'s UPDATE fails because <code>WHERE version = N</code> matches no rows. The app catches <code>OptimisticLockException</code> and retries. See <a href="https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#locking-optimistic" target="_blank">Hibernate locking</a>.' },
+      { right: false, text: 'Incorrect. Optimistic locking by definition does not block. Blocking = pessimistic.' },
+      { right: false, text: 'Incorrect. <code>@Version</code> provides automatic optimistic locking — you do not need <code>SELECT FOR UPDATE</code>.' },
+    ]
+  },
+
+  // ========================= LOMBOK (more) =========================
+  {
+    id: 42, category: 'lombok', difficulty: 'med',
+    prompt: 'What does <code>@Builder</code> generate, and when is it most useful?',
+    code: `@Builder
+public class UserCreateRequest {
+    String email;
+    String firstName;
+    String lastName;
+    int age;
+    boolean emailVerified;
+}
+
+// Usage
+UserCreateRequest req = UserCreateRequest.builder()
+    .email("ava@example.com")
+    .firstName("Ava")
+    .lastName("Lee")
+    .age(34)
+    .emailVerified(true)
+    .build();`,
+    options: [
+      'It generates JPA repository methods automatically.',
+      'It generates a fluent builder with per-field setters and a <code>build()</code> method. Best for objects with many fields, optional fields, or when you want immutability + readability at call sites.',
+      'It compiles the class into a native image.',
+      'It generates WireMock stubs for testing.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://projectlombok.org/features/Builder" target="_blank">@Builder docs</a>. Combine with <code>@Value</code> or <code>@RequiredArgsConstructor</code> for immutability. For large DTOs with optional fields, <code>@Builder</code> beats positional constructors and beats "mutable + setter chain" because it separates construction from mutation.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Builder</code> is a Lombok feature for construction; JPA repositories are Spring Data\'s concern.' },
+      { right: true,  text: 'Correct. <code>@Builder</code> generates an inner static <code>Builder</code> class with a method per field, plus <code>build()</code>. Pair with <code>@Builder.Default</code> for defaults and <code>@Singular</code> for collection builders. See <a href="https://projectlombok.org/features/Builder" target="_blank">Lombok @Builder</a>.' },
+      { right: false, text: 'Incorrect. GraalVM native image is a separate toolchain.' },
+      { right: false, text: 'Incorrect. WireMock is a standalone HTTP mock library, unrelated to Lombok.' },
+    ]
+  },
+  {
+    id: 43, category: 'lombok', difficulty: 'hard',
+    prompt: 'What is the main risk of using <code>@Slf4j</code> on a Lombok class alongside careless logging?',
+    code: `@Slf4j
+public class PaymentService {
+    public void charge(Card card, BigDecimal amount) {
+        log.info("Charging card " + card.toString() + " for " + amount);
+        // ...
+    }
+}`,
+    options: [
+      '<code>@Slf4j</code> is deprecated; use <code>@Log4j2</code>.',
+      'The log line uses string concatenation, which (a) runs even when INFO is disabled and (b) risks logging sensitive card data. Use parameterized logging (<code>log.info("Charging {} for {}", card.lastFour(), amount)</code>) and never log full PII.',
+      '<code>@Slf4j</code> does not work in Spring Boot 3.',
+      'The issue is that <code>log</code> should be <code>LOG</code> per Java conventions.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'SLF4J parameterized logging (<code>log.info("...{}...", arg)</code>) defers the toString/format work until the logger decides the level is enabled. Plus — logging raw payment data, emails, tokens, or passwords is a compliance violation (PCI, GDPR). Always log redacted/truncated identifiers. See <a href="https://www.slf4j.org/manual.html#typical_usage" target="_blank">SLF4J typical usage</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Slf4j</code> is the recommended Lombok logging annotation and works fine with Logback, Log4j2, or any SLF4J binding. See <a href="https://projectlombok.org/features/log" target="_blank">Lombok log annotations</a>.' },
+      { right: true,  text: 'Correct on both counts. (1) Parameterized logging skips the formatting cost when the level is disabled; <code>"x" + y</code> always runs. (2) Logging raw PAN or CVV is a PCI-DSS violation. Log <code>card.lastFour()</code> or similar safe tokens. See <a href="https://www.slf4j.org/faq.html#logging_performance" target="_blank">SLF4J perf FAQ</a>.' },
+      { right: false, text: 'Incorrect. <code>@Slf4j</code> works identically in Spring Boot 3.' },
+      { right: false, text: 'Incorrect. Lombok generates a <code>private static final Logger log</code>; the lowercase name is conventional SLF4J style.' },
+    ]
+  },
+
+  // ========================= ANNOTATIONS / AOP (more) =========================
+  {
+    id: 44, category: 'annot', difficulty: 'hard',
+    prompt: 'What does <code>@Qualifier</code> do, and when is it necessary in Spring Boot 3?',
+    code: `public interface NotificationSender { void send(Notification n); }
+
+@Component("email") class EmailSender    implements NotificationSender { ... }
+@Component("sms")   class SmsSender      implements NotificationSender { ... }
+
+@Service
+public class AlertService {
+    private final NotificationSender sender;
+    public AlertService(@Qualifier("email") NotificationSender sender) {
+        this.sender = sender;
+    }
+}`,
+    options: [
+      '<code>@Qualifier</code> is a security annotation that restricts who can access a bean.',
+      '<code>@Qualifier</code> disambiguates injection when multiple beans of the same type exist. Without it, Spring throws <code>NoUniqueBeanDefinitionException</code>.',
+      '<code>@Qualifier</code> is deprecated; use <code>@Primary</code> instead.',
+      '<code>@Qualifier</code> only works with field injection, not constructor injection.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'See <a href="https://docs.spring.io/spring-framework/reference/core/beans/annotation-config/autowired-qualifiers.html" target="_blank">Spring @Qualifier docs</a>. Alternative: <code>@Primary</code> on one of the implementations marks a default. For truly equal options with contextual choice, <code>@Qualifier</code> is the right tool.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Access control is <code>@Secured</code> / <code>@PreAuthorize</code>. <code>@Qualifier</code> is purely about DI disambiguation.' },
+      { right: true,  text: 'Correct. With two beans of type <code>NotificationSender</code>, Spring has no way to pick — <code>@Qualifier</code> tells it which by bean name. You can also define custom qualifier annotations (meta-annotated with <code>@Qualifier</code>) for compile-time-safe selection. See <a href="https://docs.spring.io/spring-framework/reference/core/beans/annotation-config/autowired-qualifiers.html" target="_blank">Spring qualifiers</a>.' },
+      { right: false, text: 'Incorrect. <code>@Primary</code> picks a default; <code>@Qualifier</code> picks explicitly. They are complementary, not substitutes.' },
+      { right: false, text: 'Incorrect. <code>@Qualifier</code> works on constructor parameters, setters, fields, and method arguments.' },
+    ]
+  },
+  {
+    id: 45, category: 'aop', difficulty: 'med',
+    prompt: 'Which advice type runs <em>both</em> before and after a method, can short-circuit the call, and can modify the return value?',
+    options: [
+      '<code>@Before</code>',
+      '<code>@After</code>',
+      '<code>@AfterReturning</code>',
+      '<code>@Around</code>',
+    ],
+    correct: 3,
+    hint: {
+      text: 'See <a href="https://docs.spring.io/spring-framework/reference/core/aop/ataspectj/advice.html" target="_blank">Spring advice types docs</a>. <code>@Around</code> is the most powerful — it receives a <code>ProceedingJoinPoint</code>, decides whether and when to call <code>proceed()</code>, and controls the return value.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. <code>@Before</code> runs only before the method and cannot short-circuit or modify the return.' },
+      { right: false, text: 'Incorrect. <code>@After</code> runs in a finally-like position but cannot skip the call or change the return.' },
+      { right: false, text: 'Incorrect. <code>@AfterReturning</code> runs only on successful return; you can read but not generally replace the return value.' },
+      { right: true,  text: 'Correct. <code>@Around</code> wraps the call completely: you inspect args, optionally call <code>pjp.proceed()</code>, and return whatever you want. This is why <code>@Around</code> is used for timing, retries, caching, and circuit breakers. See <a href="https://docs.spring.io/spring-framework/reference/core/aop/ataspectj/advice.html#aop-ataspectj-around-advice" target="_blank">@Around advice</a>.' },
+    ]
+  },
+
+  // ========================= STREAMING (more) =========================
+  {
+    id: 46, category: 'streaming', difficulty: 'med',
+    prompt: 'Which of these stream operations is correct and safe?',
+    code: `// Option A
+List<Integer> squares = IntStream.range(1, 1_000_000)
+    .map(i -> i * i)
+    .boxed()
+    .toList();
+
+// Option B
+List<Integer> results = new ArrayList<>();
+stream.parallel().forEach(results::add);`,
+    options: [
+      'Both A and B are correct.',
+      'Only A is correct. B is broken: <code>ArrayList</code> is not thread-safe, so <code>parallel().forEach</code> with a shared mutable collector will silently corrupt the list or throw.',
+      'Only B is correct.',
+      'Both are broken.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'Use <code>.collect(Collectors.toList())</code> or <code>.toList()</code> — never a side-effect into a shared mutable collection from a parallel stream. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/Stream.html#collect(java.util.stream.Collector)" target="_blank">Stream.collect Javadoc</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. B has a race condition: <code>ArrayList.add</code> is not thread-safe, and parallel <code>forEach</code> invokes the action on multiple threads.' },
+      { right: true,  text: 'Correct. A uses a pure functional pipeline terminated in <code>toList()</code> which produces an immutable list and is fully thread-safe even in parallel. B externalizes mutable state and should be rewritten as <code>stream.parallel().collect(Collectors.toList())</code>. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/package-summary.html#SideEffects" target="_blank">Stream side-effects warning</a>.' },
+      { right: false, text: 'Incorrect. B is unsafe; A is fine.' },
+      { right: false, text: 'Incorrect. A is a perfectly valid stream pipeline.' },
+    ]
+  },
+  {
+    id: 47, category: 'streaming', difficulty: 'hard',
+    prompt: 'You have <code>Stream&lt;User&gt; users</code>. You want to group users by country and count them. Which is idiomatic?',
+    options: [
+      'Use a for loop with a <code>HashMap&lt;String,Integer&gt;</code>.',
+      'Use <code>users.collect(Collectors.groupingBy(User::country, Collectors.counting()))</code> — returns a <code>Map&lt;String, Long&gt;</code>.',
+      'Use <code>users.toList()</code> then <code>stream()</code> it again.',
+      'Streams do not support grouping; fall back to SQL.',
+    ],
+    correct: 1,
+    hint: {
+      text: 'The <code>Collectors</code> utility class has many ready-made downstream collectors: <code>counting()</code>, <code>summingInt()</code>, <code>averagingDouble()</code>, <code>mapping()</code>, <code>toSet()</code>, etc. They compose with <code>groupingBy</code> and <code>partitioningBy</code>. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/Collectors.html" target="_blank">Collectors Javadoc</a>.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect (or at least, not idiomatic). The Collectors API is shorter, more readable, and parallelizable.' },
+      { right: true,  text: 'Correct. <code>groupingBy(User::country, counting())</code> expresses intent cleanly and returns <code>Map&lt;String, Long&gt;</code>. For counting by count-buckets, use a downstream collector. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/stream/Collectors.html#groupingBy(java.util.function.Function,java.util.stream.Collector)" target="_blank">Collectors.groupingBy</a>.' },
+      { right: false, text: 'Incorrect. Re-streaming adds no value and wastes allocations.' },
+      { right: false, text: 'Incorrect. Java Streams have first-class grouping via <code>Collectors.groupingBy</code>.' },
+    ]
+  },
+
+  // ========================= CONCURRENCY (more) =========================
+  {
+    id: 48, category: 'concur', difficulty: 'med',
+    prompt: 'Which <code>ExecutorService</code> is the correct default for Java 21 code that does many concurrent blocking I/O operations?',
+    options: [
+      '<code>Executors.newSingleThreadExecutor()</code>',
+      '<code>Executors.newFixedThreadPool(8)</code>',
+      '<code>Executors.newVirtualThreadPerTaskExecutor()</code> — each task runs on a cheap virtual thread; the JVM multiplexes them onto a small carrier pool.',
+      '<code>ForkJoinPool.commonPool()</code>',
+    ],
+    correct: 2,
+    hint: {
+      text: 'Virtual threads (<a href="https://openjdk.org/jeps/444" target="_blank">JEP 444</a>) are designed for exactly this: many concurrent I/O-bound tasks. <code>Executors.newVirtualThreadPerTaskExecutor()</code> creates a new virtual thread per submitted task — cheap and scalable.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. Single-thread means fully sequential — defeats concurrency.' },
+      { right: false, text: 'Incorrect. A fixed pool of 8 platform threads can only run 8 concurrent blocking operations. 1000 concurrent I/O tasks would queue up. Worked before Java 21 but is no longer the best default.' },
+      { right: true,  text: 'Correct. With virtual threads, creating 10,000 of them is essentially free. Blocked virtual threads unmount from carriers, freeing them for other work. See <a href="https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html" target="_blank">Oracle virtual threads guide</a>.' },
+      { right: false, text: 'Incorrect. The common ForkJoinPool is sized to CPU count and intended for CPU-bound work. Blocking I/O starves it. See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.html#commonPool()" target="_blank">ForkJoinPool.commonPool</a>.' },
+    ]
+  },
+  {
+    id: 49, category: 'concur', difficulty: 'hard',
+    prompt: 'Which statement about <code>CompletableFuture.exceptionally</code> and <code>handle</code> is correct?',
+    code: `CompletableFuture<User> cf = userService.fetchAsync(id)
+    .exceptionally(ex -> fallbackUser())       // (A)
+    .thenApply(User::sanitize);
+
+CompletableFuture<String> cf2 = userService.fetchAsync(id)
+    .handle((user, ex) -> {                    // (B)
+        if (ex != null) return "error: " + ex.getMessage();
+        return user.getDisplayName();
+    });`,
+    options: [
+      'Both are invalid — <code>CompletableFuture</code> cannot catch exceptions.',
+      'Only <code>exceptionally</code> is valid; <code>handle</code> was removed in Java 11.',
+      '<code>exceptionally</code> runs only on failure and yields a replacement value. <code>handle</code> runs on both success and failure, giving you both the value and the exception. <code>handle</code> is more general.',
+      'These are identical and always interchangeable.',
+    ],
+    correct: 2,
+    hint: {
+      text: 'See <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#exceptionally(java.util.function.Function)" target="_blank">exceptionally</a> and <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/CompletableFuture.html#handle(java.util.function.BiFunction)" target="_blank">handle</a>. Also <code>whenComplete</code> is like <code>handle</code> but cannot change the value — it\'s for side effects only.',
+    },
+    explanations: [
+      { right: false, text: 'Incorrect. CompletableFuture has rich error-handling: <code>exceptionally</code>, <code>handle</code>, <code>whenComplete</code>.' },
+      { right: false, text: 'Incorrect. Both have been available since Java 8 and are still present in Java 21.' },
+      { right: true,  text: 'Correct. <code>exceptionally</code> is like catch-and-recover (only runs on exception). <code>handle</code> is like a final-try/catch combined — it always runs and can transform either branch into the final value. Use <code>exceptionally</code> when you only care about recovery; <code>handle</code> when you want uniform result shaping. See the Javadoc links above.' },
+      { right: false, text: 'Incorrect. They differ in when they fire and what they can do.' },
+    ]
+  },
+  {
+    id: 50, category: 'concur', difficulty: 'med',
+    prompt: 'You want a periodic job to run every 30 seconds in Spring Boot. Which is correct?',
+    code: `@Component
+public class HealthPinger {
+    @Scheduled(fixedRate = 30_000)
+    public void ping() { /* ... */ }
+}
+
+// plus, on @Configuration:
+@EnableScheduling
+public class ScheduleConfig { }`,
+    options: [
+      'Correct. <code>@EnableScheduling</code> activates the scheduling subsystem, and <code>@Scheduled(fixedRate=30000)</code> runs every 30 seconds (in milliseconds). Use <code>cron</code> for calendar-style schedules.',
+      'Wrong — <code>@Scheduled</code> is deprecated; use Quartz.',
+      'Wrong — <code>@Scheduled</code> only accepts <code>cron</code> expressions.',
+      '<code>fixedRate</code> and <code>fixedDelay</code> are synonyms.',
+    ],
+    correct: 0,
+    hint: {
+      text: 'See <a href="https://docs.spring.io/spring-framework/reference/integration/scheduling.html#scheduling-annotation-support-scheduled" target="_blank">@Scheduled docs</a>. <code>fixedRate</code> measures from the <em>start</em> of the previous run. <code>fixedDelay</code> measures from the <em>end</em>. <code>cron</code> uses Spring cron (6 fields including seconds).',
+    },
+    explanations: [
+      { right: true,  text: 'Correct. <code>@EnableScheduling</code> must appear once (Spring Boot autoconfigures if you use <code>@SpringBootApplication</code> + any <code>@Scheduled</code>). <code>fixedRate</code>, <code>fixedDelay</code>, and <code>cron</code> are the main modes. In Spring Boot 3.2+ with virtual threads enabled, scheduled tasks run on virtual threads. See <a href="https://docs.spring.io/spring-framework/reference/integration/scheduling.html" target="_blank">Spring scheduling</a>.' },
+      { right: false, text: 'Incorrect. <code>@Scheduled</code> is alive and well. Quartz is for more complex scheduling needs (clusters, persistence, calendars).' },
+      { right: false, text: 'Incorrect. <code>@Scheduled</code> supports <code>fixedRate</code>, <code>fixedDelay</code>, <code>initialDelay</code>, and <code>cron</code>.' },
+      { right: false, text: 'Incorrect. <code>fixedRate</code> = every X from <em>start</em>; <code>fixedDelay</code> = X delay between <em>end</em> of previous and <em>start</em> of next. Very different behavior if a run takes a long time.' },
+    ]
+  },
+];
+
+
+// ============================================================================
+// STATE & RENDERING
+// ============================================================================
+
+const state = {
+  answered: {},     // id -> ORIGINAL option index (not display position)
+  revealed: {},     // id -> true once Submit clicked
+  hintsShown: {},   // id -> true
+  activeFilters: new Set(),  // empty = show all
+  permutations: {}, // id -> array mapping display position -> original option index
+  displayOrder: [], // ordered list of question IDs in display order for this session
+};
+
+// Fisher-Yates shuffle (returns new array)
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Build a shuffled option permutation for a question, with a constraint:
+// no single option index should repeat in the same position too often across questions.
+// We use a simple per-question shuffle but track recent correct positions to avoid
+// the "answer is always position X" pattern.
+const recentCorrectPositions = [];
+function permutationFor(q) {
+  if (state.permutations[q.id]) return state.permutations[q.id];
+
+  let perm;
+  let attempts = 0;
+  while (true) {
+    perm = shuffle([...Array(q.options.length).keys()]);
+    const correctPos = perm.indexOf(q.correct);
+    // Avoid more than 2 consecutive questions having the same correct position
+    const last3 = recentCorrectPositions.slice(-3);
+    const sameAsAll = last3.length === 3 && last3.every(p => p === correctPos);
+    if (!sameAsAll || attempts > 8) break;
+    attempts++;
+  }
+  state.permutations[q.id] = perm;
+  recentCorrectPositions.push(perm.indexOf(q.correct));
+  return perm;
+}
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class')        e.className = v;
+    else if (k === 'html')    e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.substring(2), v);
+    else                      e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function diffLabel(d) {
+  return { easy: ['tag-diff-easy', 'Easy'], med: ['tag-diff-med', 'Medium'], hard: ['tag-diff-hard', 'Hard'] }[d];
+}
+
+function renderFilters() {
+  const container = document.getElementById('filters');
+  container.innerHTML = '';
+
+  const all = el('div', {
+    class: 'cat-pill ' + (state.activeFilters.size === 0 ? 'active' : ''),
+    onclick: () => { state.activeFilters.clear(); renderFilters(); renderQuiz(); }
+  }, 'All topics');
+  container.appendChild(all);
+
+  for (const [key, cat] of Object.entries(CATEGORIES)) {
+    const active = state.activeFilters.has(key);
+    const pill = el('div', {
+      class: 'cat-pill ' + (active ? 'active' : ''),
+      onclick: () => {
+        if (active) state.activeFilters.delete(key);
+        else state.activeFilters.add(key);
+        renderFilters(); renderQuiz();
+      }
+    }, cat.label);
+    container.appendChild(pill);
+  }
+}
+
+// Build (once per session) a stable shuffled display order across all questions.
+function ensureDisplayOrder() {
+  if (state.displayOrder.length === QUESTIONS.length) return;
+  state.displayOrder = shuffle(QUESTIONS.map(q => q.id));
+}
+
+function visibleQuestions() {
+  ensureDisplayOrder();
+  // Apply the shuffled order, then filter
+  const byId = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+  const ordered = state.displayOrder.map(id => byId[id]).filter(Boolean);
+  if (state.activeFilters.size === 0) return ordered;
+  return ordered.filter(q => state.activeFilters.has(q.category));
+}
+
+function renderQuestion(q, idx) {
+  const cat = CATEGORIES[q.category];
+  const [diffCls, diffText] = diffLabel(q.difficulty);
+  const perm = permutationFor(q);  // display position -> original option index
+  const correctDisplayPos = perm.indexOf(q.correct);
+
+  const wrap = el('article', { class: 'box p-8 mb-8 fade-in', id: 'q' + q.id });
+
+  // Header
+  const header = el('div', { class: 'flex flex-wrap items-center gap-3 mb-5' },
+    el('span', { class: 'mono text-xs font-semibold', style: 'color:var(--gray-50);' }, `Q${String(idx + 1).padStart(2, '0')}`),
+    el('span', { class: 'tag ' + cat.cls }, cat.label),
+    el('span', { class: 'tag ' + diffCls }, diffText),
+  );
+  wrap.appendChild(header);
+
+  // Prompt
+  wrap.appendChild(el('div', { class: 'serif text-xl leading-snug mb-4', html: q.prompt }));
+
+  // Code snippet if any
+  if (q.code) {
+    wrap.appendChild(el('pre', { class: 'code', html: q.code }));
+  }
+
+  // Options — iterate display positions, look up original indices via perm
+  const optsWrap = el('div', { class: 'space-y-2 mt-5' });
+  perm.forEach((origIdx, displayPos) => {
+    const optHtml = q.options[origIdx];
+    const classes = ['opt'];
+    const selectedOrigIdx = state.answered[q.id];
+    const revealed = state.revealed[q.id];
+
+    if (revealed) classes.push('locked');
+    if (selectedOrigIdx === origIdx) classes.push('selected');
+    if (revealed) {
+      if (origIdx === q.correct) classes.push('correct');
+      else if (selectedOrigIdx === origIdx) classes.push('incorrect');
+    }
+
+    const optEl = el('div', {
+      class: classes.join(' '),
+      onclick: () => {
+        if (revealed) return;
+        state.answered[q.id] = origIdx;  // store ORIGINAL index
+        renderQuiz();
+      }
+    },
+      el('div', { class: 'letter' }, String.fromCharCode(65 + displayPos)),
+      el('div', { class: 'flex-1', html: optHtml })
+    );
+    optsWrap.appendChild(optEl);
+  });
+  wrap.appendChild(optsWrap);
+
+  // Button row
+  const btnRow = el('div', { class: 'flex flex-wrap gap-3 mt-6' });
+  const hintShown = state.hintsShown[q.id];
+  const revealed = state.revealed[q.id];
+
+  if (!revealed) {
+    if (!hintShown) {
+      btnRow.appendChild(el('button', {
+        class: 'btn btn-ghost',
+        onclick: () => { state.hintsShown[q.id] = true; renderQuiz(); }
+      }, 'Show hint'));
+    }
+    const submitBtn = el('button', {
+      class: 'btn',
+      onclick: () => {
+        if (state.answered[q.id] === undefined) return;
+        state.revealed[q.id] = true;
+        renderQuiz();
+        document.getElementById('q' + q.id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 'Submit answer');
+    if (state.answered[q.id] === undefined) submitBtn.disabled = true;
+    btnRow.appendChild(submitBtn);
+  } else {
+    const isRight = state.answered[q.id] === q.correct;
+    btnRow.appendChild(el('div', {
+      class: 'side-chip ' + (isRight ? 'tag-diff-easy' : 'tag-diff-hard')
+    }, isRight ? '✓ Correct' : '✗ Incorrect'));
+  }
+
+  wrap.appendChild(btnRow);
+
+  // Hint
+  if (hintShown && !revealed) {
+    wrap.appendChild(el('div', {
+      class: 'explain explain-hint mt-4',
+      html: '<div class="mono text-xs uppercase tracking-widest mb-2" style="color:#684e00;">Hint</div>' + q.hint.text
+    }));
+  }
+
+  // Explanations (after reveal) — use display positions for labelling
+  if (revealed) {
+    const correctExp = q.explanations[q.correct];
+    wrap.appendChild(el('div', {
+      class: 'explain explain-right mt-4',
+      html: `<div class="mono text-xs uppercase tracking-widest mb-2" style="color:#0e6027;">Answer · option ${String.fromCharCode(65 + correctDisplayPos)} is correct</div>` + correctExp.text
+    }));
+
+    const wrongSection = el('div', { class: 'mt-4' });
+    wrongSection.appendChild(el('div', {
+      class: 'mono text-xs uppercase tracking-widest mb-3',
+      style: 'color:var(--gray-70);'
+    }, 'Why the other options are wrong'));
+
+    // Iterate in display order so letters ascend A, B, C, D
+    perm.forEach((origIdx, displayPos) => {
+      if (origIdx === q.correct) return;
+      const exp = q.explanations[origIdx];
+      wrongSection.appendChild(el('div', {
+        class: 'explain explain-wrong',
+        html: `<div class="mono text-xs uppercase mb-1" style="color:#750e13;">Option ${String.fromCharCode(65 + displayPos)}</div>` + exp.text
+      }));
+    });
+    wrap.appendChild(wrongSection);
+
+    wrap.appendChild(el('div', {
+      class: 'explain explain-hint mt-4',
+      html: '<div class="mono text-xs uppercase tracking-widest mb-2" style="color:#684e00;">Further reading</div>' + q.hint.text
+    }));
+  }
+
+  return wrap;
+}
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  container.innerHTML = '';
+
+  const visible = visibleQuestions();
+
+  if (visible.length === 0) {
+    container.appendChild(el('div', { class: 'box p-10 text-center' },
+      el('div', { class: 'serif text-xl mb-2' }, 'No questions match the filter.'),
+      el('div', { class: 'text-sm', style: 'color:var(--gray-70);' }, 'Select different topics or click "All topics" to reset.')
+    ));
+  } else {
+    visible.forEach((q, i) => container.appendChild(renderQuestion(q, i)));
+  }
+
+  updateStats();
+}
+
+function updateStats() {
+  const total = QUESTIONS.length;
+  const answered = Object.keys(state.revealed).length;
+  let correct = 0;
+  for (const id in state.revealed) {
+    const q = QUESTIONS.find(q => q.id == id);
+    if (q && state.answered[id] === q.correct) correct++;
+  }
+  document.getElementById('total-count').textContent = total;
+  document.getElementById('answered-count').textContent = answered;
+  document.getElementById('correct-count').textContent = correct;
+  document.getElementById('progress-fill').style.width = (answered / total * 100) + '%';
+
+  // Summary bar
+  const summary = document.getElementById('summary');
+  if (answered === total && total > 0) {
+    const pct = Math.round(correct / total * 100);
+    document.getElementById('final-pct').textContent = pct + '%';
+    document.getElementById('final-right').textContent = correct;
+    document.getElementById('final-wrong').textContent = total - correct;
+    document.getElementById('score-marker').style.left = pct + '%';
+
+    let verdict;
+    if (pct >= 90) verdict = 'Excellent — staff-engineer territory on this material. You could lead an interview panel on these topics.';
+    else if (pct >= 75) verdict = 'Strong senior-engineer performance. Brush up on the topics where you missed and you\'re interview-ready.';
+    else if (pct >= 60) verdict = 'Solid mid-level grounding. Focus study on the topics where you got multiple wrong, and retake this quiz.';
+    else if (pct >= 40) verdict = 'Good foundation but significant gaps. Re-read the explanations carefully — every wrong answer has a link to the authoritative docs.';
+    else verdict = 'Early career or out of practice. Work through the linked docs for each topic before your interview. The explanations above are a study guide.';
+    document.getElementById('score-verdict').textContent = verdict;
+
+    summary.classList.remove('hidden');
+  } else {
+    summary.classList.add('hidden');
+  }
+}
+
+function resetQuiz() {
+  if (!confirm('Reset all answers, re-shuffle questions and options, and start over?')) return;
+  state.answered = {};
+  state.revealed = {};
+  state.hintsShown = {};
+  state.permutations = {};
+  state.displayOrder = [];
+  recentCorrectPositions.length = 0;
+  renderQuiz();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Boot
+document.addEventListener('DOMContentLoaded', () => {
+  renderFilters();
+  renderQuiz();
+});
+</script>
+
+</body>
+</html>
