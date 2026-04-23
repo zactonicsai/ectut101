@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elasticsearch / OpenSearch — Operations Field Manual</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e13;
+    --bg-2: #11151c;
+    --surface: #171c25;
+    --surface-2: #1d2330;
+    --line: #262d3b;
+    --line-2: #323a4a;
+    --ink: #e6e8ec;
+    --ink-dim: #9aa3b2;
+    --ink-faint: #6b7587;
+    --accent: #ff7a45;      /* signal orange — ES brand-adjacent */
+    --accent-2: #4fd1c5;    /* teal — OpenSearch-adjacent */
+    --yellow: #ffd166;
+    --red: #ef4444;
+    --green: #52c41a;
+  }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter Tight', sans-serif; }
+  .display { font-family: 'Fraunces', serif; letter-spacing: -0.02em; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .noise::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay; opacity: 0.6;
+  }
+  .code-block {
+    background: #0a0d13; border: 1px solid var(--line);
+    color: #d9dde4; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.7; overflow-x: auto;
+  }
+  .code-block .c-key { color: #ffb86c; }
+  .code-block .c-str { color: #9ece6a; }
+  .code-block .c-num { color: #bb9af7; }
+  .code-block .c-com { color: #6b7587; font-style: italic; }
+  .code-block .c-kw  { color: #ff7a45; }
+  .code-block .c-fn  { color: #4fd1c5; }
+  .btn-primary {
+    background: var(--accent); color: #0b0e13; font-weight: 600;
+    transition: all 0.15s ease;
+  }
+  .btn-primary:hover { background: #ff9166; transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent; border: 1px solid var(--line-2); color: var(--ink);
+    transition: all 0.15s ease;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .step-chip {
+    background: var(--surface); border: 1px solid var(--line-2);
+    color: var(--ink-dim); font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .section-divider {
+    border-top: 1px dashed var(--line-2); position: relative;
+  }
+  .section-divider::before {
+    content: "§"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--bg); padding: 0 14px; color: var(--ink-faint);
+    font-family: 'Fraunces', serif; font-size: 20px;
+  }
+  /* modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(5,7,11,0.82);
+    backdrop-filter: blur(6px); z-index: 50;
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+  .modal-panel {
+    background: var(--bg-2); border: 1px solid var(--line-2);
+    max-width: 760px; width: 100%; max-height: 85vh; overflow-y: auto;
+    position: relative; animation: slideUp 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+  /* nav active */
+  .nav-link { color: var(--ink-dim); transition: color 0.15s; }
+  .nav-link:hover, .nav-link.active { color: var(--accent); }
+  .nav-link.active { font-weight: 600; }
+  /* copy feedback */
+  .copied { background: var(--green) !important; color: #0b0e13 !important; }
+  /* pill tabs */
+  .tab-btn { color: var(--ink-dim); border-bottom: 2px solid transparent; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  /* expandable */
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] > summary .chev { transform: rotate(90deg); }
+  .chev { transition: transform 0.2s; }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- =========================  HEADER  ========================= -->
+<header class="sticky top-0 z-40 border-b" style="background:rgba(11,14,19,0.88);backdrop-filter:blur(12px);border-color:var(--line);">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14" stroke="#ff7a45" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="8" stroke="#4fd1c5" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="2" fill="#ff7a45"/>
+      </svg>
+      <div>
+        <div class="mono text-[10px] uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Field Manual /v1</div>
+        <div class="display text-lg font-semibold">Search Operations</div>
+      </div>
+    </div>
+    <nav class="hidden lg:flex items-center gap-7 text-sm mono">
+      <a href="#concepts" class="nav-link">01 · concepts</a>
+      <a href="#docker" class="nav-link">02 · local</a>
+      <a href="#k8s" class="nav-link">03 · k8s</a>
+      <a href="#aws" class="nav-link">04 · aws</a>
+      <a href="#azure" class="nav-link">05 · azure</a>
+      <a href="#index" class="nav-link">06 · index</a>
+      <a href="#backup" class="nav-link">07 · backup</a>
+      <a href="#monitor" class="nav-link">08 · monitor</a>
+      <a href="#golang" class="nav-link">09 · go</a>
+    </nav>
+  </div>
+</header>
+
+<!-- =========================  HERO  ========================= -->
+<section class="relative grid-bg noise overflow-hidden" style="border-bottom:1px solid var(--line);">
+  <div class="max-w-7xl mx-auto px-6 py-20 lg:py-28 relative">
+    <div class="flex items-center gap-3 mb-6">
+      <span class="step-chip px-3 py-1">Operations Runbook</span>
+      <span class="mono text-xs" style="color:var(--ink-faint);">revised · 2026-04</span>
+    </div>
+    <h1 class="display text-5xl md:text-7xl font-semibold leading-[0.95] max-w-5xl">
+      Stand up, secure &amp; operate<br>
+      <span style="color:var(--accent);">Elasticsearch</span> <span style="color:var(--ink-faint);">/</span> <span style="color:var(--accent-2);">OpenSearch</span><br>
+      clusters that don&rsquo;t wake you at 3am.
+    </h1>
+    <p class="mt-8 text-lg max-w-2xl" style="color:var(--ink-dim);">
+      A step-by-step field manual — from a Docker Compose simulation on your laptop, to Helm on Kubernetes, to production behind AWS ALB and Azure Application Gateway. With snapshots, monitoring, and a small Go indexer you can actually run.
+    </p>
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a href="#concepts" class="btn-primary px-5 py-3 inline-flex items-center gap-2 text-sm">
+        Start at §01 <span>→</span>
+      </a>
+      <a href="#references" class="btn-ghost px-5 py-3 text-sm">Official docs &amp; references</a>
+      <button onclick="openModal('modal-legend')" class="btn-ghost px-5 py-3 text-sm">How to read this manual</button>
+    </div>
+
+    <!-- section index -->
+    <div class="mt-16 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px" style="background:var(--line);">
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§01</div>
+        <div class="mt-2 font-semibold">Concepts</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Nodes, shards, quorum</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§02</div>
+        <div class="mt-2 font-semibold">Docker Compose</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">3-node local sim</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§03</div>
+        <div class="mt-2 font-semibold">Kubernetes</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Helm + StatefulSet</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§04</div>
+        <div class="mt-2 font-semibold">AWS</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">EKS · ALB · S3</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§05</div>
+        <div class="mt-2 font-semibold">Azure</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">AKS · AppGW · Blob</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§06</div>
+        <div class="mt-2 font-semibold">Indices</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Mappings · ILM · ISM</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§07</div>
+        <div class="mt-2 font-semibold">Backup</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Snapshot &amp; restore</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§08</div>
+        <div class="mt-2 font-semibold">Monitoring</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Prometheus · Grafana</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§09</div>
+        <div class="mt-2 font-semibold">Go Client</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Indexer program</div>
+      </div>
+      <div class="p-5" style="background:var(--bg);">
+        <div class="mono text-xs" style="color:var(--ink-faint);">§10</div>
+        <div class="mt-2 font-semibold">References</div>
+        <div class="text-sm mt-1" style="color:var(--ink-dim);">Official docs</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================  §01 CONCEPTS  ========================= -->
+<section id="concepts" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§01</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Concepts &amp; architecture</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Understand the cluster before you build one.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Elasticsearch and OpenSearch are distributed search engines. OpenSearch is an AWS-maintained fork of Elasticsearch 7.10 — the operational APIs are ~95% identical. Unless noted, everything here works for both.
+  </p>
+
+  <div class="mt-12 grid lg:grid-cols-3 gap-px" style="background:var(--line);">
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--accent);">node role</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Master-eligible</h3>
+      <p class="mt-3 text-sm" style="color:var(--ink-dim);">Manages cluster state &mdash; which node holds which shard. Run <span class="mono" style="color:var(--ink);">exactly 3</span> for quorum. Two will split-brain; one has no HA.</p>
+    </div>
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--accent-2);">node role</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Data</h3>
+      <p class="mt-3 text-sm" style="color:var(--ink-dim);">Stores shards, serves search/index traffic. Scale horizontally as data grows. Needs fast disk (gp3 / Premium SSD minimum).</p>
+    </div>
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--yellow);">node role</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Coordinating</h3>
+      <p class="mt-3 text-sm" style="color:var(--ink-dim);">Routes client requests. The Load Balancer (ALB / App Gateway / k8s Service) fronts these. Often colocated with data nodes in smaller clusters.</p>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE SVG DIAGRAM -->
+  <div class="mt-16">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="step-chip px-3 py-1">diagram</span>
+      <span class="text-sm" style="color:var(--ink-dim);">End-to-end topology — from client to persisted snapshot</span>
+    </div>
+    <div class="p-8 border" style="background:var(--bg-2); border-color:var(--line);">
+      <svg viewBox="0 0 1000 540" xmlns="http://www.w3.org/2000/svg" class="w-full h-auto">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7587"/>
+          </marker>
+          <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff7a45"/>
+          </marker>
+        </defs>
+
+        <!-- clients -->
+        <g>
+          <rect x="20" y="40" width="140" height="50" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="90" y="65" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">Web / App clients</text>
+          <text x="90" y="82" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">HTTPS</text>
+
+          <rect x="20" y="110" width="140" height="50" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="90" y="135" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">Go indexer (§09)</text>
+          <text x="90" y="152" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">bulk writes</text>
+
+          <rect x="20" y="180" width="140" height="50" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="90" y="205" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">Logstash / Beats</text>
+          <text x="90" y="222" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">logs, metrics</text>
+        </g>
+
+        <!-- LB -->
+        <g>
+          <rect x="220" y="95" width="160" height="110" rx="2" fill="#1d2330" stroke="#ff7a45" stroke-width="1.5"/>
+          <text x="300" y="118" text-anchor="middle" fill="#ff7a45" font-family="JetBrains Mono" font-size="10" font-weight="700">LOAD BALANCER</text>
+          <text x="300" y="140" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">AWS ALB</text>
+          <text x="300" y="158" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">Azure App Gateway</text>
+          <text x="300" y="176" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">TLS termination</text>
+          <text x="300" y="192" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">health: /_cluster/health</text>
+        </g>
+
+        <!-- coordinating -->
+        <g>
+          <rect x="430" y="105" width="140" height="90" rx="2" fill="#171c25" stroke="#ffd166"/>
+          <text x="500" y="128" text-anchor="middle" fill="#ffd166" font-family="JetBrains Mono" font-size="10" font-weight="700">COORDINATING</text>
+          <text x="500" y="150" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">3 × client nodes</text>
+          <text x="500" y="170" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">routes requests</text>
+          <text x="500" y="185" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">merges results</text>
+        </g>
+
+        <!-- master nodes -->
+        <g>
+          <rect x="620" y="20" width="340" height="60" rx="2" fill="#171c25" stroke="#323a4a" stroke-dasharray="4 3"/>
+          <text x="790" y="40" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10" font-weight="700">MASTER QUORUM · 3 NODES</text>
+          <circle cx="680" cy="60" r="10" fill="#11151c" stroke="#ff7a45"/>
+          <text x="680" y="64" text-anchor="middle" fill="#ff7a45" font-family="JetBrains Mono" font-size="10">m1</text>
+          <circle cx="790" cy="60" r="10" fill="#11151c" stroke="#ff7a45"/>
+          <text x="790" y="64" text-anchor="middle" fill="#ff7a45" font-family="JetBrains Mono" font-size="10">m2</text>
+          <circle cx="900" cy="60" r="10" fill="#11151c" stroke="#ff7a45"/>
+          <text x="900" y="64" text-anchor="middle" fill="#ff7a45" font-family="JetBrains Mono" font-size="10">m3</text>
+        </g>
+
+        <!-- data nodes -->
+        <g>
+          <rect x="620" y="105" width="340" height="180" rx="2" fill="#11151c" stroke="#4fd1c5"/>
+          <text x="790" y="125" text-anchor="middle" fill="#4fd1c5" font-family="JetBrains Mono" font-size="10" font-weight="700">DATA NODES · STATEFULSET</text>
+
+          <!-- data node 1 -->
+          <rect x="640" y="140" width="95" height="125" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="687" y="158" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="11" font-weight="600">data-0</text>
+          <rect x="650" y="170" width="30" height="18" fill="#4fd1c5" opacity="0.8"/>
+          <text x="665" y="183" text-anchor="middle" fill="#0b0e13" font-family="JetBrains Mono" font-size="9" font-weight="700">P0</text>
+          <rect x="685" y="170" width="30" height="18" fill="#323a4a"/>
+          <text x="700" y="183" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R1</text>
+          <rect x="650" y="195" width="30" height="18" fill="#323a4a"/>
+          <text x="665" y="208" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R2</text>
+          <rect x="685" y="195" width="30" height="18" fill="#4fd1c5" opacity="0.8"/>
+          <text x="700" y="208" text-anchor="middle" fill="#0b0e13" font-family="JetBrains Mono" font-size="9" font-weight="700">P3</text>
+          <text x="687" y="240" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">PVC · gp3</text>
+          <text x="687" y="255" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">100 Gi</text>
+
+          <!-- data node 2 -->
+          <rect x="742" y="140" width="95" height="125" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="789" y="158" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="11" font-weight="600">data-1</text>
+          <rect x="752" y="170" width="30" height="18" fill="#323a4a"/>
+          <text x="767" y="183" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R0</text>
+          <rect x="787" y="170" width="30" height="18" fill="#4fd1c5" opacity="0.8"/>
+          <text x="802" y="183" text-anchor="middle" fill="#0b0e13" font-family="JetBrains Mono" font-size="9" font-weight="700">P1</text>
+          <rect x="752" y="195" width="30" height="18" fill="#4fd1c5" opacity="0.8"/>
+          <text x="767" y="208" text-anchor="middle" fill="#0b0e13" font-family="JetBrains Mono" font-size="9" font-weight="700">P2</text>
+          <rect x="787" y="195" width="30" height="18" fill="#323a4a"/>
+          <text x="802" y="208" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R3</text>
+          <text x="789" y="240" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">PVC · gp3</text>
+          <text x="789" y="255" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">100 Gi</text>
+
+          <!-- data node 3 -->
+          <rect x="844" y="140" width="95" height="125" rx="2" fill="#171c25" stroke="#323a4a"/>
+          <text x="891" y="158" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="11" font-weight="600">data-2</text>
+          <rect x="854" y="170" width="30" height="18" fill="#323a4a"/>
+          <text x="869" y="183" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R0</text>
+          <rect x="889" y="170" width="30" height="18" fill="#323a4a"/>
+          <text x="904" y="183" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R1</text>
+          <rect x="854" y="195" width="30" height="18" fill="#323a4a"/>
+          <text x="869" y="208" text-anchor="middle" fill="#e6e8ec" font-family="JetBrains Mono" font-size="9">R2</text>
+          <rect x="889" y="195" width="30" height="18" fill="#4fd1c5" opacity="0.8"/>
+          <text x="904" y="208" text-anchor="middle" fill="#0b0e13" font-family="JetBrains Mono" font-size="9" font-weight="700">P3</text>
+          <text x="891" y="240" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">PVC · gp3</text>
+          <text x="891" y="255" text-anchor="middle" fill="#6b7587" font-family="JetBrains Mono" font-size="9">100 Gi</text>
+        </g>
+
+        <!-- legend for shards -->
+        <g transform="translate(620, 295)">
+          <rect x="0" y="0" width="14" height="14" fill="#4fd1c5" opacity="0.8"/>
+          <text x="20" y="11" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">Primary shard</text>
+          <rect x="130" y="0" width="14" height="14" fill="#323a4a"/>
+          <text x="150" y="11" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">Replica shard</text>
+        </g>
+
+        <!-- snapshot target -->
+        <g>
+          <rect x="380" y="400" width="240" height="90" rx="2" fill="#1d2330" stroke="#ffd166"/>
+          <text x="500" y="422" text-anchor="middle" fill="#ffd166" font-family="JetBrains Mono" font-size="10" font-weight="700">SNAPSHOT REPOSITORY</text>
+          <text x="500" y="446" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">AWS S3  ·  Azure Blob</text>
+          <text x="500" y="465" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">incremental · encrypted</text>
+          <text x="500" y="480" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">lifecycle policy → glacier</text>
+        </g>
+
+        <!-- monitoring -->
+        <g>
+          <rect x="720" y="400" width="240" height="90" rx="2" fill="#1d2330" stroke="#52c41a"/>
+          <text x="840" y="422" text-anchor="middle" fill="#52c41a" font-family="JetBrains Mono" font-size="10" font-weight="700">OBSERVABILITY STACK</text>
+          <text x="840" y="446" text-anchor="middle" fill="#e6e8ec" font-family="Inter Tight" font-size="13" font-weight="600">Prometheus → Grafana</text>
+          <text x="840" y="465" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">exporter :9114</text>
+          <text x="840" y="480" text-anchor="middle" fill="#9aa3b2" font-family="JetBrains Mono" font-size="10">alerts → PagerDuty</text>
+        </g>
+
+        <!-- arrows -->
+        <line x1="160" y1="65" x2="218" y2="130" stroke="#6b7587" marker-end="url(#arrow)"/>
+        <line x1="160" y1="135" x2="218" y2="145" stroke="#6b7587" marker-end="url(#arrow)"/>
+        <line x1="160" y1="205" x2="218" y2="165" stroke="#6b7587" marker-end="url(#arrow)"/>
+
+        <line x1="380" y1="150" x2="428" y2="150" stroke="#ff7a45" stroke-width="2" marker-end="url(#arrow-orange)"/>
+        <line x1="570" y1="150" x2="618" y2="190" stroke="#6b7587" marker-end="url(#arrow)"/>
+        <line x1="570" y1="140" x2="618" y2="60" stroke="#6b7587" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+
+        <line x1="790" y1="285" x2="600" y2="398" stroke="#ffd166" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+        <text x="655" y="350" fill="#ffd166" font-family="JetBrains Mono" font-size="10">snapshot</text>
+
+        <line x1="790" y1="285" x2="840" y2="398" stroke="#52c41a" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+        <text x="845" y="350" fill="#52c41a" font-family="JetBrains Mono" font-size="10">scrape</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- best practices popup -->
+  <div class="mt-12 grid md:grid-cols-3 gap-4">
+    <button onclick="openModal('modal-shards')" class="text-left p-6 border hover:border-orange-500 transition-all group" style="background:var(--surface);border-color:var(--line);">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="mono text-xs" style="color:var(--accent);">best practice</div>
+          <h4 class="display text-xl mt-2 font-semibold group-hover:text-orange-400">Shard sizing</h4>
+          <p class="mt-2 text-sm" style="color:var(--ink-dim);">The #1 cluster mistake. Click for sizing math.</p>
+        </div>
+        <span class="mono text-lg" style="color:var(--ink-faint);">↗</span>
+      </div>
+    </button>
+    <button onclick="openModal('modal-quorum')" class="text-left p-6 border hover:border-orange-500 transition-all group" style="background:var(--surface);border-color:var(--line);">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="mono text-xs" style="color:var(--accent);">best practice</div>
+          <h4 class="display text-xl mt-2 font-semibold group-hover:text-orange-400">Split-brain &amp; quorum</h4>
+          <p class="mt-2 text-sm" style="color:var(--ink-dim);">Why you always run 3 masters, not 2.</p>
+        </div>
+        <span class="mono text-lg" style="color:var(--ink-faint);">↗</span>
+      </div>
+    </button>
+    <button onclick="openModal('modal-heap')" class="text-left p-6 border hover:border-orange-500 transition-all group" style="background:var(--surface);border-color:var(--line);">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="mono text-xs" style="color:var(--accent);">best practice</div>
+          <h4 class="display text-xl mt-2 font-semibold group-hover:text-orange-400">JVM heap sizing</h4>
+          <p class="mt-2 text-sm" style="color:var(--ink-dim);">The 50/50 rule and the 31 GB ceiling.</p>
+        </div>
+        <span class="mono text-lg" style="color:var(--ink-faint);">↗</span>
+      </div>
+    </button>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §02 DOCKER COMPOSE  ========================= -->
+<section id="docker" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§02</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Local simulation · Docker Compose</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Simulate a 3-node cluster on your laptop.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Use this for development, index-mapping tests, and interview prep. It is not production — but the 3-node topology mirrors what you&rsquo;ll deploy later.
+  </p>
+
+  <!-- stepper -->
+  <div class="mt-14 space-y-10">
+    <!-- step 1 -->
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 01</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Prerequisites</h3>
+      </div>
+      <div>
+        <p style="color:var(--ink-dim);">Docker 24+, docker compose v2, 8 GB free RAM. Linux hosts must raise the vm map count:</p>
+        <div class="code-block p-4 mt-3">
+          <span class="c-com"># required on Linux, one-time per host</span><br>
+          sudo sysctl -w <span class="c-kw">vm.max_map_count</span>=<span class="c-num">262144</span>
+        </div>
+        <button onclick="openModal('modal-vm-map')" class="btn-ghost text-xs px-3 py-2 mt-3 inline-flex items-center gap-2">
+          <span class="mono">[i]</span> Why this setting matters
+        </button>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 02</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Compose file</h3>
+      </div>
+      <div>
+        <p style="color:var(--ink-dim);">Create <span class="mono text-sm" style="color:var(--ink);">docker-compose.yml</span> with three OpenSearch nodes sharing a cluster name, plus OpenSearch Dashboards (the Kibana equivalent).</p>
+
+        <!-- tabs: OpenSearch / Elasticsearch -->
+        <div class="mt-4 border-b" style="border-color:var(--line);">
+          <button class="tab-btn active px-4 py-2 text-sm mono" data-tab="os">opensearch.yml</button>
+          <button class="tab-btn px-4 py-2 text-sm mono" data-tab="es">elasticsearch.yml</button>
+        </div>
+
+        <div class="tab-panel" data-panel="os">
+          <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">version</span>: <span class="c-str">"3.8"</span>
+<span class="c-key">services</span>:
+  <span class="c-key">os-node-1</span>: &amp;node
+    <span class="c-key">image</span>: opensearchproject/opensearch:2.13.0
+    <span class="c-key">environment</span>:
+      - cluster.name=demo-cluster
+      - discovery.seed_hosts=os-node-1,os-node-2,os-node-3
+      - cluster.initial_cluster_manager_nodes=os-node-1,os-node-2,os-node-3
+      - bootstrap.memory_lock=true
+      - <span class="c-str">"OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"</span>
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Str0ngPass!demo
+      - node.name=os-node-1
+    <span class="c-key">ulimits</span>:
+      <span class="c-key">memlock</span>: { soft: -1, hard: -1 }
+      <span class="c-key">nofile</span>:  { soft: 65536, hard: 65536 }
+    <span class="c-key">volumes</span>: [os-data-1:/usr/share/opensearch/data]
+    <span class="c-key">ports</span>:   [<span class="c-str">"9200:9200"</span>]
+    <span class="c-key">networks</span>: [os-net]
+
+  <span class="c-key">os-node-2</span>:
+    &lt;&lt;: *node
+    <span class="c-key">environment</span>:
+      - cluster.name=demo-cluster
+      - discovery.seed_hosts=os-node-1,os-node-2,os-node-3
+      - cluster.initial_cluster_manager_nodes=os-node-1,os-node-2,os-node-3
+      - bootstrap.memory_lock=true
+      - <span class="c-str">"OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"</span>
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Str0ngPass!demo
+      - node.name=os-node-2
+    <span class="c-key">volumes</span>: [os-data-2:/usr/share/opensearch/data]
+
+  <span class="c-key">os-node-3</span>:
+    &lt;&lt;: *node
+    <span class="c-key">environment</span>:
+      - cluster.name=demo-cluster
+      - discovery.seed_hosts=os-node-1,os-node-2,os-node-3
+      - cluster.initial_cluster_manager_nodes=os-node-1,os-node-2,os-node-3
+      - bootstrap.memory_lock=true
+      - <span class="c-str">"OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"</span>
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Str0ngPass!demo
+      - node.name=os-node-3
+    <span class="c-key">volumes</span>: [os-data-3:/usr/share/opensearch/data]
+
+  <span class="c-key">dashboards</span>:
+    <span class="c-key">image</span>: opensearchproject/opensearch-dashboards:2.13.0
+    <span class="c-key">ports</span>: [<span class="c-str">"5601:5601"</span>]
+    <span class="c-key">environment</span>:
+      - <span class="c-str">'OPENSEARCH_HOSTS=["https://os-node-1:9200"]'</span>
+    <span class="c-key">networks</span>: [os-net]
+
+<span class="c-key">volumes</span>: { os-data-1: {}, os-data-2: {}, os-data-3: {} }
+<span class="c-key">networks</span>: { os-net: { driver: bridge } }</pre>
+          </div>
+        </div>
+
+        <div class="tab-panel hidden" data-panel="es">
+          <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-com"># Elasticsearch variant — swap image + env vars</span>
+<span class="c-key">services</span>:
+  <span class="c-key">es-node-1</span>:
+    <span class="c-key">image</span>: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    <span class="c-key">environment</span>:
+      - node.name=es-node-1
+      - cluster.name=demo-cluster
+      - discovery.seed_hosts=es-node-2,es-node-3
+      - cluster.initial_master_nodes=es-node-1,es-node-2,es-node-3
+      - bootstrap.memory_lock=true
+      - <span class="c-str">"ES_JAVA_OPTS=-Xms1g -Xmx1g"</span>
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=Str0ngPass!demo
+    <span class="c-key">ulimits</span>:
+      <span class="c-key">memlock</span>: { soft: -1, hard: -1 }
+    <span class="c-key">volumes</span>: [es-data-1:/usr/share/elasticsearch/data]
+    <span class="c-key">ports</span>:   [<span class="c-str">"9200:9200"</span>]</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 03</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Bring it up &amp; verify</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>docker compose up -d
+docker compose ps
+
+<span class="c-com"># cluster health — expect status=green and number_of_nodes=3</span>
+curl -ks -u admin:<span class="c-str">'Str0ngPass!demo'</span> \
+  https://localhost:9200/_cluster/health?pretty
+
+<span class="c-com"># dashboards at http://localhost:5601 (user: admin)</span></pre>
+        </div>
+        <div class="mt-4 p-4 border-l-2" style="background:var(--surface);border-color:var(--green);">
+          <div class="mono text-xs" style="color:var(--green);">expected output</div>
+          <div class="mono text-xs mt-2" style="color:var(--ink);">"status" : "green", "number_of_nodes" : 3, "active_shards" : N</div>
+        </div>
+        <button onclick="openModal('modal-compose-bp')" class="btn-ghost text-xs px-3 py-2 mt-4 inline-flex items-center gap-2">
+          <span class="mono">[!]</span> Compose best practices &amp; pitfalls
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §03 KUBERNETES  ========================= -->
+<section id="k8s" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§03</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Kubernetes · Helm &amp; manifests</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Cluster on Kubernetes in two shapes.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Production pattern: StatefulSet + PersistentVolumes + a headless Service for peer discovery + a regular Service (or Ingress) for clients. Pick Helm for speed, raw manifests for full control.
+  </p>
+
+  <div class="mt-12 border-b" style="border-color:var(--line);">
+    <button class="tab-btn active px-5 py-3 mono text-sm" data-tab="helm">option-a · helm</button>
+    <button class="tab-btn px-5 py-3 mono text-sm" data-tab="manifest">option-b · raw manifest</button>
+  </div>
+
+  <!-- HELM PANEL -->
+  <div class="tab-panel mt-8" data-panel="helm">
+    <div class="grid md:grid-cols-[180px_1fr] gap-6 mb-10">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 01</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Add repo</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>helm repo add opensearch https://opensearch-project.github.io/helm-charts/
+helm repo update
+kubectl create namespace search
+kubectl -n search create secret generic opensearch-admin \
+  --from-literal=password=<span class="c-str">'Str0ngPass!prod'</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-[180px_1fr] gap-6 mb-10">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 02</div>
+        <h3 class="display text-2xl mt-3 font-semibold">values.yaml</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">clusterName</span>: prod-cluster
+<span class="c-key">replicas</span>: <span class="c-num">3</span>
+<span class="c-key">roles</span>: [cluster_manager, data, ingest]
+
+<span class="c-key">opensearchJavaOpts</span>: <span class="c-str">"-Xms2g -Xmx2g"</span>
+
+<span class="c-key">resources</span>:
+  <span class="c-key">requests</span>: { cpu: <span class="c-str">"1000m"</span>, memory: <span class="c-str">"4Gi"</span> }
+  <span class="c-key">limits</span>:   { cpu: <span class="c-str">"2000m"</span>, memory: <span class="c-str">"4Gi"</span> }
+
+<span class="c-key">persistence</span>:
+  <span class="c-key">enabled</span>: <span class="c-kw">true</span>
+  <span class="c-key">storageClass</span>: gp3            <span class="c-com"># AWS; 'managed-premium' on Azure</span>
+  <span class="c-key">size</span>: 100Gi
+
+<span class="c-key">extraEnvs</span>:
+  - <span class="c-key">name</span>: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    <span class="c-key">valueFrom</span>:
+      <span class="c-key">secretKeyRef</span>: { name: opensearch-admin, key: password }
+
+<span class="c-key">antiAffinity</span>: hard               <span class="c-com"># spread pods across nodes — critical!</span></pre>
+        </div>
+        <div class="mt-3 flex gap-3">
+          <button onclick="openModal('modal-antiaffinity')" class="btn-ghost text-xs px-3 py-2 mono">[!] Why antiAffinity=hard</button>
+          <button onclick="openModal('modal-heap')" class="btn-ghost text-xs px-3 py-2 mono">[i] Heap sizing rules</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 03</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Install &amp; verify</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>helm -n search install opensearch opensearch/opensearch -f values.yaml
+
+kubectl -n search get pods -w            <span class="c-com"># wait for 3/3 Ready</span>
+kubectl -n search port-forward svc/opensearch-cluster-master 9200:9200
+curl -ks -u admin:<span class="c-str">'Str0ngPass!prod'</span> https://localhost:9200/_cat/nodes?v</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANIFEST PANEL -->
+  <div class="tab-panel hidden mt-8" data-panel="manifest">
+    <p class="text-sm mb-4" style="color:var(--ink-dim);">The raw StatefulSet below mirrors what Helm generates. Use it when you need custom tweaks, air-gap deploys, or GitOps control.</p>
+    <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-com"># opensearch-sts.yaml</span>
+<span class="c-key">apiVersion</span>: v1
+<span class="c-key">kind</span>: Service
+<span class="c-key">metadata</span>: { name: opensearch-headless, namespace: search }
+<span class="c-key">spec</span>:
+  <span class="c-key">clusterIP</span>: None                       <span class="c-com"># headless for peer DNS</span>
+  <span class="c-key">selector</span>: { app: opensearch }
+  <span class="c-key">ports</span>:
+    - { name: transport, port: 9300 }
+    - { name: rest,      port: 9200 }
+---
+<span class="c-key">apiVersion</span>: v1
+<span class="c-key">kind</span>: Service
+<span class="c-key">metadata</span>: { name: opensearch-client, namespace: search }
+<span class="c-key">spec</span>:
+  <span class="c-key">type</span>: ClusterIP
+  <span class="c-key">selector</span>: { app: opensearch }
+  <span class="c-key">ports</span>: [{ name: rest, port: 9200, targetPort: 9200 }]
+---
+<span class="c-key">apiVersion</span>: apps/v1
+<span class="c-key">kind</span>: StatefulSet
+<span class="c-key">metadata</span>: { name: opensearch, namespace: search }
+<span class="c-key">spec</span>:
+  <span class="c-key">serviceName</span>: opensearch-headless
+  <span class="c-key">replicas</span>: <span class="c-num">3</span>
+  <span class="c-key">selector</span>: { matchLabels: { app: opensearch } }
+  <span class="c-key">template</span>:
+    <span class="c-key">metadata</span>: { labels: { app: opensearch } }
+    <span class="c-key">spec</span>:
+      <span class="c-key">initContainers</span>:
+        - <span class="c-key">name</span>: fix-sysctl
+          <span class="c-key">image</span>: busybox:1.36
+          <span class="c-key">securityContext</span>: { privileged: <span class="c-kw">true</span> }
+          <span class="c-key">command</span>: [<span class="c-str">"sh"</span>, <span class="c-str">"-c"</span>, <span class="c-str">"sysctl -w vm.max_map_count=262144"</span>]
+      <span class="c-key">containers</span>:
+        - <span class="c-key">name</span>: opensearch
+          <span class="c-key">image</span>: opensearchproject/opensearch:2.13.0
+          <span class="c-key">env</span>:
+            - { name: cluster.name,            value: prod-cluster }
+            - { name: discovery.seed_hosts,    value: <span class="c-str">"opensearch-headless"</span> }
+            - { name: cluster.initial_cluster_manager_nodes,
+                value: <span class="c-str">"opensearch-0,opensearch-1,opensearch-2"</span> }
+            - { name: node.name,
+                valueFrom: { fieldRef: { fieldPath: metadata.name } } }
+            - { name: OPENSEARCH_JAVA_OPTS,    value: <span class="c-str">"-Xms2g -Xmx2g"</span> }
+            - <span class="c-key">name</span>: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+              <span class="c-key">valueFrom</span>:
+                <span class="c-key">secretKeyRef</span>: { name: opensearch-admin, key: password }
+          <span class="c-key">resources</span>:
+            <span class="c-key">requests</span>: { cpu: <span class="c-str">"1"</span>, memory: <span class="c-str">"4Gi"</span> }
+            <span class="c-key">limits</span>:   { cpu: <span class="c-str">"2"</span>, memory: <span class="c-str">"4Gi"</span> }
+          <span class="c-key">ports</span>:
+            - { name: rest, containerPort: 9200 }
+            - { name: transport, containerPort: 9300 }
+          <span class="c-key">volumeMounts</span>:
+            - { name: data, mountPath: /usr/share/opensearch/data }
+          <span class="c-key">readinessProbe</span>:
+            <span class="c-key">httpGet</span>: { scheme: HTTPS, path: /_cluster/health, port: 9200 }
+            <span class="c-key">initialDelaySeconds</span>: <span class="c-num">60</span>
+  <span class="c-key">volumeClaimTemplates</span>:
+    - <span class="c-key">metadata</span>: { name: data }
+      <span class="c-key">spec</span>:
+        <span class="c-key">accessModes</span>: [<span class="c-str">"ReadWriteOnce"</span>]
+        <span class="c-key">storageClassName</span>: gp3
+        <span class="c-key">resources</span>: { requests: { storage: 100Gi } }</pre>
+    </div>
+    <div class="mt-4 code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>kubectl apply -f opensearch-sts.yaml
+kubectl -n search rollout status sts/opensearch</pre>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §04 AWS  ========================= -->
+<section id="aws" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§04</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Amazon Web Services</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Two production paths on AWS.</h2>
+
+  <div class="mt-12 grid md:grid-cols-2 gap-6">
+    <!-- Pattern A -->
+    <div class="p-8 border" style="background:var(--surface);border-color:var(--line);">
+      <div class="mono text-xs" style="color:var(--accent);">pattern · A</div>
+      <h3 class="display text-3xl mt-2 font-semibold">Managed OpenSearch Service</h3>
+      <p class="mt-3 text-sm" style="color:var(--ink-dim);">AWS runs the cluster. You get a VPC endpoint. Fastest path, least control.</p>
+
+      <div class="code-block p-4 mt-5 relative text-[12px]">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>aws opensearch create-domain \
+  --domain-name prod-search \
+  --engine-version OpenSearch_2.13 \
+  --cluster-config <span class="c-str">'{
+    "InstanceType":"m6g.large.search",
+    "InstanceCount":3,
+    "DedicatedMasterEnabled":true,
+    "DedicatedMasterType":"m6g.large.search",
+    "DedicatedMasterCount":3,
+    "ZoneAwarenessEnabled":true,
+    "ZoneAwarenessConfig":{"AvailabilityZoneCount":3}
+  }'</span> \
+  --ebs-options <span class="c-str">'{"EBSEnabled":true,
+    "VolumeType":"gp3","VolumeSize":100}'</span> \
+  --node-to-node-encryption-options Enabled=true \
+  --encryption-at-rest-options Enabled=true \
+  --domain-endpoint-options EnforceHTTPS=true \
+  --vpc-options <span class="c-str">'SubnetIds=subnet-a,subnet-b,subnet-c,
+    SecurityGroupIds=sg-xxx'</span></pre>
+      </div>
+      <button onclick="openModal('modal-aws-mgmt')" class="btn-ghost text-xs px-3 py-2 mt-4 mono">[i] Managed vs self-managed trade-offs</button>
+    </div>
+
+    <!-- Pattern B -->
+    <div class="p-8 border" style="background:var(--surface);border-color:var(--line);">
+      <div class="mono text-xs" style="color:var(--accent);">pattern · B</div>
+      <h3 class="display text-3xl mt-2 font-semibold">Self-managed on EKS + ALB</h3>
+      <p class="mt-3 text-sm" style="color:var(--ink-dim);">Full control, custom plugins, custom builds. Deploy the §03 Helm chart here, then expose via ALB Ingress.</p>
+
+      <details class="mt-5 border-l-2 pl-4" style="border-color:var(--accent);">
+        <summary class="mono text-xs flex items-center gap-2 py-2" style="color:var(--ink-dim);">
+          <span class="chev">▸</span> step 01 · create EKS cluster
+        </summary>
+        <div class="code-block p-3 mt-2 text-[12px]">
+<pre>eksctl create cluster --name search-prod --region us-east-1 \
+  --nodegroup-name search-ng --node-type m6i.xlarge \
+  --nodes 3 --nodes-min 3 --nodes-max 9 \
+  --with-oidc --managed</pre>
+        </div>
+      </details>
+
+      <details class="mt-2 border-l-2 pl-4" style="border-color:var(--accent);">
+        <summary class="mono text-xs flex items-center gap-2 py-2" style="color:var(--ink-dim);">
+          <span class="chev">▸</span> step 02 · install AWS Load Balancer Controller
+        </summary>
+        <div class="code-block p-3 mt-2 text-[12px]">
+<pre>helm repo add eks https://aws.github.io/eks-charts
+helm install aws-load-balancer-controller \
+  eks/aws-load-balancer-controller -n kube-system \
+  --set clusterName=search-prod \
+  --set serviceAccount.create=true \
+  --set serviceAccount.name=aws-load-balancer-controller</pre>
+        </div>
+      </details>
+
+      <details class="mt-2 border-l-2 pl-4" style="border-color:var(--accent);">
+        <summary class="mono text-xs flex items-center gap-2 py-2" style="color:var(--ink-dim);">
+          <span class="chev">▸</span> step 03 · expose via ALB Ingress
+        </summary>
+        <div class="code-block p-3 mt-2 text-[12px]">
+<pre><span class="c-key">apiVersion</span>: networking.k8s.io/v1
+<span class="c-key">kind</span>: Ingress
+<span class="c-key">metadata</span>:
+  <span class="c-key">name</span>: opensearch
+  <span class="c-key">namespace</span>: search
+  <span class="c-key">annotations</span>:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: <span class="c-str">'[{"HTTPS":443}]'</span>
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:...
+    alb.ingress.kubernetes.io/healthcheck-path: /_cluster/health
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    alb.ingress.kubernetes.io/success-codes: <span class="c-str">"200,401"</span>
+<span class="c-key">spec</span>:
+  <span class="c-key">rules</span>:
+  - <span class="c-key">host</span>: search.internal.example.com
+    <span class="c-key">http</span>:
+      <span class="c-key">paths</span>:
+      - <span class="c-key">path</span>: /
+        <span class="c-key">pathType</span>: Prefix
+        <span class="c-key">backend</span>:
+          <span class="c-key">service</span>:
+            <span class="c-key">name</span>: opensearch-cluster-master
+            <span class="c-key">port</span>: { number: 9200 }</pre>
+        </div>
+      </details>
+
+      <button onclick="openModal('modal-alb')" class="btn-ghost text-xs px-3 py-2 mt-4 mono">[!] ALB health check gotchas</button>
+    </div>
+  </div>
+
+  <!-- S3 snapshot -->
+  <div class="mt-12 p-8 border" style="background:var(--bg-2);border-color:var(--line);">
+    <div class="mono text-xs" style="color:var(--yellow);">snapshot target · both patterns</div>
+    <h3 class="display text-2xl mt-2 font-semibold">Register S3 as snapshot repository</h3>
+    <div class="code-block p-4 mt-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>aws s3api create-bucket --bucket my-search-snapshots --region us-east-1
+
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  https://&lt;endpoint&gt;/_snapshot/s3-repo \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "type": "s3",
+    "settings": {
+      "bucket": "my-search-snapshots",
+      "region": "us-east-1",
+      "role_arn": "arn:aws:iam::111111111111:role/OpenSearchSnapshotRole"
+    }
+  }'</span></pre>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §05 AZURE  ========================= -->
+<section id="azure" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§05</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Microsoft Azure</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Self-managed on AKS — there&rsquo;s no managed OpenSearch on Azure.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Azure has Elastic Cloud marketplace integrations and Elastic&rsquo;s own managed service, but no first-party managed OpenSearch. The common pattern is self-managed on AKS fronted by Application Gateway.
+  </p>
+
+  <div class="mt-12 space-y-8">
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 01</div>
+        <h3 class="display text-2xl mt-3 font-semibold">AKS cluster</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>az group create -n search-rg -l eastus
+az aks create -g search-rg -n search-aks \
+  --node-count 3 --node-vm-size Standard_D4s_v5 \
+  --enable-managed-identity --generate-ssh-keys \
+  --zones 1 2 3
+az aks get-credentials -g search-rg -n search-aks</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 02</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Install OpenSearch</h3>
+      </div>
+      <div>
+        <p style="color:var(--ink-dim);">Use the §03 Helm values, but change one line for Azure&rsquo;s Premium SSD storage class:</p>
+        <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">persistence</span>:
+  <span class="c-key">storageClass</span>: managed-premium      <span class="c-com"># was 'gp3' on AWS</span>
+  <span class="c-key">size</span>: 100Gi</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 03</div>
+        <h3 class="display text-2xl mt-3 font-semibold">App Gateway Ingress</h3>
+      </div>
+      <div>
+        <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>az aks enable-addons -g search-rg -n search-aks \
+  --addons ingress-appgw \
+  --appgw-name search-appgw --appgw-subnet-cidr 10.225.0.0/16</pre>
+        </div>
+        <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">apiVersion</span>: networking.k8s.io/v1
+<span class="c-key">kind</span>: Ingress
+<span class="c-key">metadata</span>:
+  <span class="c-key">name</span>: opensearch
+  <span class="c-key">namespace</span>: search
+  <span class="c-key">annotations</span>:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/backend-protocol: https
+    appgw.ingress.kubernetes.io/health-probe-path: /_cluster/health
+    appgw.ingress.kubernetes.io/health-probe-status-codes: <span class="c-str">"200-401"</span>
+<span class="c-key">spec</span>:
+  <span class="c-key">rules</span>:
+  - <span class="c-key">host</span>: search.internal.example.com
+    <span class="c-key">http</span>:
+      <span class="c-key">paths</span>:
+      - <span class="c-key">path</span>: /
+        <span class="c-key">pathType</span>: Prefix
+        <span class="c-key">backend</span>:
+          <span class="c-key">service</span>:
+            <span class="c-key">name</span>: opensearch-cluster-master
+            <span class="c-key">port</span>: { number: 9200 }</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-[180px_1fr] gap-6">
+      <div>
+        <div class="step-chip inline-block px-3 py-1">step · 04</div>
+        <h3 class="display text-2xl mt-3 font-semibold">Azure Blob snapshots</h3>
+      </div>
+      <div>
+        <p style="color:var(--ink-dim);">Install the <span class="mono text-sm" style="color:var(--ink);">repository-azure</span> plugin on every node (custom image or init-container), then register the repo.</p>
+        <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>az storage account create -n mysearchsnapshots -g search-rg \
+  -l eastus --sku Standard_LRS
+az storage container create -n snapshots --account-name mysearchsnapshots
+
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  https://search.internal.example.com/_snapshot/azure-repo \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "type":"azure","settings":{"container":"snapshots","base_path":"prod"}
+  }'</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §06 INDICES  ========================= -->
+<section id="index" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§06</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Configuring indices</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Mappings, templates, lifecycle.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Always define explicit mappings for any field you&rsquo;ll query seriously. Dynamic mapping is a debugging nightmare in production.
+  </p>
+
+  <div class="mt-12 space-y-8">
+    <!-- create index -->
+    <div>
+      <div class="flex items-center gap-3 mb-3">
+        <span class="step-chip px-3 py-1">part · 01</span>
+        <span class="display text-2xl font-semibold">Create an index with explicit mappings</span>
+      </div>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  https://&lt;endpoint&gt;/orders \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "refresh_interval": "5s",
+    "analysis": {
+      "analyzer": {
+        "lowercase_keyword": {
+          "type": "custom",
+          "tokenizer": "keyword",
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "order_id":   { "type": "keyword" },
+      "customer":   { "type": "keyword", "fields": { "text": { "type": "text" } } },
+      "amount":     { "type": "double" },
+      "created_at": { "type": "date" },
+      "items": {
+        "type": "nested",
+        "properties": {
+          "sku": { "type": "keyword" },
+          "qty": { "type": "integer" }
+        }
+      }
+    }
+  }
+}'</span></pre>
+      </div>
+      <button onclick="openModal('modal-mapping')" class="btn-ghost text-xs px-3 py-2 mt-3 mono">[!] keyword vs text — when to use each</button>
+    </div>
+
+    <!-- template -->
+    <div>
+      <div class="flex items-center gap-3 mb-3">
+        <span class="step-chip px-3 py-1">part · 02</span>
+        <span class="display text-2xl font-semibold">Index template (time-series pattern)</span>
+      </div>
+      <p class="text-sm mb-3" style="color:var(--ink-dim);">Any index matching the pattern inherits these settings. Essential for <span class="mono" style="color:var(--ink);">logs-*</span>, <span class="mono" style="color:var(--ink);">orders-*</span>, etc.</p>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  https://&lt;endpoint&gt;/_index_template/orders-template \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "index_patterns": ["orders-*"],
+    "template": {
+      "settings": { "number_of_shards": 3, "number_of_replicas": 1 },
+      "mappings": {
+        "properties": {
+          "order_id":   { "type": "keyword" },
+          "amount":     { "type": "double" },
+          "created_at": { "type": "date" }
+        }
+      }
+    }
+  }'</span></pre>
+      </div>
+    </div>
+
+    <!-- ISM -->
+    <div>
+      <div class="flex items-center gap-3 mb-3">
+        <span class="step-chip px-3 py-1">part · 03</span>
+        <span class="display text-2xl font-semibold">Lifecycle (ISM / ILM) — rollover &amp; delete</span>
+      </div>
+      <p class="text-sm mb-3" style="color:var(--ink-dim);">OpenSearch uses ISM, Elasticsearch uses ILM — concepts are identical. This policy rolls over daily and deletes after 90 days.</p>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  https://&lt;endpoint&gt;/_plugins/_ism/policies/orders-policy \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+  "policy": {
+    "description": "rollover daily, delete after 90d",
+    "default_state": "hot",
+    "states": [
+      { "name": "hot",
+        "actions": [{ "rollover": { "min_index_age": "1d", "min_size": "50gb" } }],
+        "transitions": [{ "state_name": "delete",
+                          "conditions": { "min_index_age": "90d" } }] },
+      { "name": "delete", "actions": [{ "delete": {} }], "transitions": [] }
+    ]
+  }
+}'</span></pre>
+      </div>
+      <button onclick="openModal('modal-ism')" class="btn-ghost text-xs px-3 py-2 mt-3 mono">[i] Hot-warm-cold tiering pattern</button>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §07 BACKUP / RESTORE  ========================= -->
+<section id="backup" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§07</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Snapshot &amp; restore</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Backups are only as good as the last restore test.</h2>
+
+  <div class="mt-12 grid md:grid-cols-2 gap-6">
+    <div class="p-8 border" style="background:var(--surface);border-color:var(--line);">
+      <div class="mono text-xs" style="color:var(--accent);">take a snapshot</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Manual snapshot</h3>
+      <div class="code-block p-4 mt-4 relative text-[12px]">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-com"># all indices (wait_for_completion=false returns immediately)</span>
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X PUT \
+  <span class="c-str">"https://&lt;endpoint&gt;/_snapshot/s3-repo/snap-$(date +%Y%m%d-%H%M)"</span> \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "indices": "*",
+    "ignore_unavailable": true,
+    "include_global_state": false
+  }'</span>
+
+<span class="c-com"># check progress</span>
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> \
+  https://&lt;endpoint&gt;/_snapshot/s3-repo/_all?pretty</pre>
+      </div>
+    </div>
+
+    <div class="p-8 border" style="background:var(--surface);border-color:var(--line);">
+      <div class="mono text-xs" style="color:var(--accent-2);">schedule &amp; automate</div>
+      <h3 class="display text-2xl mt-2 font-semibold">SLM / SM policy</h3>
+      <div class="code-block p-4 mt-4 relative text-[12px]">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-[10px] mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-com"># daily at 01:00 UTC, keep 14</span>
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X POST \
+  https://&lt;endpoint&gt;/_plugins/_sm/policies/daily \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "description": "daily snapshots",
+    "creation": {
+      "schedule": { "cron": { "expression": "0 1 * * *",
+                              "timezone": "UTC" } }
+    },
+    "deletion": { "condition": { "max_count": 14 } },
+    "snapshot_config": { "indices": "*", "repository": "s3-repo" }
+  }'</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 p-8 border-2" style="background:var(--bg-2);border-color:var(--red);">
+    <div class="flex items-start gap-4">
+      <div class="mono text-xs px-3 py-1" style="background:var(--red);color:white;">restore</div>
+      <div class="flex-1">
+        <h3 class="display text-2xl font-semibold">Restore from snapshot</h3>
+        <p class="mt-2 text-sm" style="color:var(--ink-dim);">Closed or missing indices only — you cannot overwrite an open index. Close it or restore under a new name.</p>
+        <div class="code-block p-4 mt-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-com"># close the target first (or use rename_pattern / rename_replacement)</span>
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X POST \
+  https://&lt;endpoint&gt;/orders/_close
+
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> -X POST \
+  https://&lt;endpoint&gt;/_snapshot/s3-repo/snap-20260423-0100/_restore \
+  -H <span class="c-str">'Content-Type: application/json'</span> -d <span class="c-str">'{
+    "indices": "orders",
+    "rename_pattern": "orders",
+    "rename_replacement": "orders_restored",
+    "include_aliases": false
+  }'</span>
+
+<span class="c-com"># verify doc count matches pre-snapshot</span>
+curl -ku admin:<span class="c-str">'Str0ngPass!prod'</span> \
+  https://&lt;endpoint&gt;/orders_restored/_count</pre>
+        </div>
+        <button onclick="openModal('modal-restore-bp')" class="btn-ghost text-xs px-3 py-2 mt-4 mono">[!] Restore best practices &amp; DR drill checklist</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §08 MONITORING  ========================= -->
+<section id="monitor" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§08</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Monitoring</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Metrics to watch. Alerts that fire.</h2>
+
+  <div class="mt-12 grid md:grid-cols-4 gap-px" style="background:var(--line);">
+    <div class="p-6" style="background:var(--bg);">
+      <div class="mono text-[10px]" style="color:var(--red);">CRITICAL</div>
+      <div class="display text-xl mt-2 font-semibold">cluster.status</div>
+      <p class="text-xs mt-2" style="color:var(--ink-dim);">green · yellow · red</p>
+      <p class="text-xs mt-1 mono" style="color:var(--ink-faint);">alert: != green &gt; 5m</p>
+    </div>
+    <div class="p-6" style="background:var(--bg);">
+      <div class="mono text-[10px]" style="color:var(--red);">CRITICAL</div>
+      <div class="display text-xl mt-2 font-semibold">fs.usage</div>
+      <p class="text-xs mt-2" style="color:var(--ink-dim);">disk free per data node</p>
+      <p class="text-xs mt-1 mono" style="color:var(--ink-faint);">alert: &gt; 75% (watermark!)</p>
+    </div>
+    <div class="p-6" style="background:var(--bg);">
+      <div class="mono text-[10px]" style="color:var(--yellow);">WARN</div>
+      <div class="display text-xl mt-2 font-semibold">jvm.heap.used</div>
+      <p class="text-xs mt-2" style="color:var(--ink-dim);">gc thrash territory</p>
+      <p class="text-xs mt-1 mono" style="color:var(--ink-faint);">alert: &gt; 85% sustained</p>
+    </div>
+    <div class="p-6" style="background:var(--bg);">
+      <div class="mono text-[10px]" style="color:var(--yellow);">WARN</div>
+      <div class="display text-xl mt-2 font-semibold">thread_pool.rejected</div>
+      <p class="text-xs mt-2" style="color:var(--ink-dim);">write/search rejections</p>
+      <p class="text-xs mt-1 mono" style="color:var(--ink-faint);">alert: &gt; 0 rate</p>
+    </div>
+  </div>
+
+  <div class="mt-10 grid md:grid-cols-[180px_1fr] gap-6">
+    <div>
+      <div class="step-chip inline-block px-3 py-1">step · 01</div>
+      <h3 class="display text-2xl mt-3 font-semibold">Deploy exporter</h3>
+    </div>
+    <div>
+      <p style="color:var(--ink-dim);">Run <span class="mono text-sm" style="color:var(--ink);">prometheus-elasticsearch-exporter</span> as a sidecar or separate Deployment. It scrapes <span class="mono text-sm" style="color:var(--ink);">/_cluster/stats</span> and exposes Prometheus metrics on :9114.</p>
+      <div class="code-block p-4 mt-3 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">apiVersion</span>: apps/v1
+<span class="c-key">kind</span>: Deployment
+<span class="c-key">metadata</span>: { name: es-exporter, namespace: search }
+<span class="c-key">spec</span>:
+  <span class="c-key">replicas</span>: <span class="c-num">1</span>
+  <span class="c-key">selector</span>: { matchLabels: { app: es-exporter } }
+  <span class="c-key">template</span>:
+    <span class="c-key">metadata</span>:
+      <span class="c-key">labels</span>: { app: es-exporter }
+      <span class="c-key">annotations</span>:
+        prometheus.io/scrape: <span class="c-str">"true"</span>
+        prometheus.io/port:   <span class="c-str">"9114"</span>
+    <span class="c-key">spec</span>:
+      <span class="c-key">containers</span>:
+        - <span class="c-key">name</span>: exporter
+          <span class="c-key">image</span>: quay.io/prometheuscommunity/elasticsearch-exporter:v1.7.0
+          <span class="c-key">args</span>:
+            - --es.uri=https://admin:$(PASSWORD)@opensearch-cluster-master:9200
+            - --es.all --es.indices --es.snapshots --es.ssl-skip-verify
+          <span class="c-key">env</span>:
+            - <span class="c-key">name</span>: PASSWORD
+              <span class="c-key">valueFrom</span>: { secretKeyRef: { name: opensearch-admin, key: password } }
+          <span class="c-key">ports</span>: [{ containerPort: 9114 }]</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid md:grid-cols-[180px_1fr] gap-6">
+    <div>
+      <div class="step-chip inline-block px-3 py-1">step · 02</div>
+      <h3 class="display text-2xl mt-3 font-semibold">Alerting rules</h3>
+    </div>
+    <div>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-key">groups</span>:
+  - <span class="c-key">name</span>: opensearch
+    <span class="c-key">rules</span>:
+      - <span class="c-key">alert</span>: ClusterRed
+        <span class="c-key">expr</span>: elasticsearch_cluster_health_status{color=<span class="c-str">"red"</span>} == 1
+        <span class="c-key">for</span>: 2m
+        <span class="c-key">labels</span>: { severity: page }
+        <span class="c-key">annotations</span>: { summary: <span class="c-str">"Cluster {{$labels.cluster}} is RED"</span> }
+
+      - <span class="c-key">alert</span>: HighHeap
+        <span class="c-key">expr</span>: elasticsearch_jvm_memory_used_bytes{area=<span class="c-str">"heap"</span>}
+              / elasticsearch_jvm_memory_max_bytes{area=<span class="c-str">"heap"</span>} &gt; 0.85
+        <span class="c-key">for</span>: 10m
+        <span class="c-key">labels</span>: { severity: warn }
+
+      - <span class="c-key">alert</span>: DiskHigh
+        <span class="c-key">expr</span>: (elasticsearch_filesystem_data_size_bytes
+              - elasticsearch_filesystem_data_free_bytes)
+              / elasticsearch_filesystem_data_size_bytes &gt; 0.75
+        <span class="c-key">for</span>: 15m
+        <span class="c-key">labels</span>: { severity: page }</pre>
+      </div>
+      <button onclick="openModal('modal-watermarks')" class="btn-ghost text-xs px-3 py-2 mt-3 mono">[!] Disk watermarks — why 75% matters</button>
+    </div>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §09 GO CLIENT  ========================= -->
+<section id="golang" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§09</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">Go indexer program</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">A real program you can run.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    Seeds the <span class="mono" style="color:var(--ink);">orders</span> index with fake documents via bulk API, then runs a search. Works against the Docker Compose sim from §02 out of the box.
+  </p>
+
+  <div class="mt-10 grid md:grid-cols-[180px_1fr] gap-6">
+    <div>
+      <div class="step-chip inline-block px-3 py-1">file · 01</div>
+      <h3 class="display text-xl mt-3 font-semibold">go.mod</h3>
+    </div>
+    <div>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-kw">module</span> indexer
+
+<span class="c-kw">go</span> 1.22
+
+<span class="c-kw">require</span> github.com/opensearch-project/opensearch-go/v3 v3.1.0</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid md:grid-cols-[180px_1fr] gap-6">
+    <div>
+      <div class="step-chip inline-block px-3 py-1">file · 02</div>
+      <h3 class="display text-xl mt-3 font-semibold">main.go</h3>
+    </div>
+    <div>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre><span class="c-kw">package</span> main
+
+<span class="c-kw">import</span> (
+    <span class="c-str">"context"</span>
+    <span class="c-str">"crypto/tls"</span>
+    <span class="c-str">"encoding/json"</span>
+    <span class="c-str">"fmt"</span>
+    <span class="c-str">"log"</span>
+    <span class="c-str">"net/http"</span>
+    <span class="c-str">"os"</span>
+    <span class="c-str">"strings"</span>
+    <span class="c-str">"time"</span>
+
+    opensearch <span class="c-str">"github.com/opensearch-project/opensearch-go/v3"</span>
+    opensearchapi <span class="c-str">"github.com/opensearch-project/opensearch-go/v3/opensearchapi"</span>
+)
+
+<span class="c-kw">type</span> Order <span class="c-kw">struct</span> {
+    OrderID   <span class="c-kw">string</span>    <span class="c-str">`json:"order_id"`</span>
+    Customer  <span class="c-kw">string</span>    <span class="c-str">`json:"customer"`</span>
+    Amount    <span class="c-kw">float64</span>   <span class="c-str">`json:"amount"`</span>
+    CreatedAt time.Time <span class="c-str">`json:"created_at"`</span>
+}
+
+<span class="c-kw">func</span> <span class="c-fn">main</span>() {
+    addr := <span class="c-fn">envOr</span>(<span class="c-str">"OS_ADDR"</span>, <span class="c-str">"https://localhost:9200"</span>)
+    user := <span class="c-fn">envOr</span>(<span class="c-str">"OS_USER"</span>, <span class="c-str">"admin"</span>)
+    pass := <span class="c-fn">envOr</span>(<span class="c-str">"OS_PASS"</span>, <span class="c-str">"Str0ngPass!demo"</span>)
+
+    client, err := opensearchapi.<span class="c-fn">NewClient</span>(opensearchapi.Config{
+        Client: opensearch.Config{
+            Addresses: []<span class="c-kw">string</span>{addr},
+            Username:  user,
+            Password:  pass,
+            Transport: &amp;http.Transport{
+                TLSClientConfig: &amp;tls.Config{InsecureSkipVerify: <span class="c-kw">true</span>}, <span class="c-com">// dev only</span>
+            },
+        },
+    })
+    <span class="c-kw">if</span> err != <span class="c-kw">nil</span> { log.<span class="c-fn">Fatal</span>(err) }
+
+    ctx := context.<span class="c-fn">Background</span>()
+
+    <span class="c-com">// 1. bulk-index 1000 orders</span>
+    <span class="c-kw">var</span> buf strings.Builder
+    <span class="c-kw">for</span> i := 0; i &lt; 1000; i++ {
+        buf.<span class="c-fn">WriteString</span>(<span class="c-str">`{"index":{"_index":"orders"}}`</span> + <span class="c-str">"\n"</span>)
+        doc, _ := json.<span class="c-fn">Marshal</span>(Order{
+            OrderID:   fmt.<span class="c-fn">Sprintf</span>(<span class="c-str">"ord-%05d"</span>, i),
+            Customer:  fmt.<span class="c-fn">Sprintf</span>(<span class="c-str">"customer-%d"</span>, i%50),
+            Amount:    10 + <span class="c-kw">float64</span>(i%500),
+            CreatedAt: time.<span class="c-fn">Now</span>().<span class="c-fn">UTC</span>(),
+        })
+        buf.<span class="c-fn">Write</span>(doc); buf.<span class="c-fn">WriteString</span>(<span class="c-str">"\n"</span>)
+    }
+
+    bulkResp, err := client.<span class="c-fn">Bulk</span>(ctx, opensearchapi.BulkReq{
+        Body: strings.<span class="c-fn">NewReader</span>(buf.<span class="c-fn">String</span>()),
+    })
+    <span class="c-kw">if</span> err != <span class="c-kw">nil</span> { log.<span class="c-fn">Fatal</span>(err) }
+    fmt.<span class="c-fn">Printf</span>(<span class="c-str">"indexed %d docs in %dms, errors=%v\n"</span>,
+        <span class="c-fn">len</span>(bulkResp.Items), bulkResp.Took, bulkResp.Errors)
+
+    <span class="c-com">// 2. force refresh so docs are searchable immediately</span>
+    _, _ = client.Indices.<span class="c-fn">Refresh</span>(ctx, opensearchapi.IndicesRefreshReq{
+        Indices: []<span class="c-kw">string</span>{<span class="c-str">"orders"</span>},
+    })
+
+    <span class="c-com">// 3. search high-value orders</span>
+    query := <span class="c-str">`{
+      "query": { "range": { "amount": { "gte": 400 } } },
+      "size": 5,
+      "sort": [{ "amount": "desc" }]
+    }`</span>
+    search, err := client.<span class="c-fn">Search</span>(ctx, &amp;opensearchapi.SearchReq{
+        Indices: []<span class="c-kw">string</span>{<span class="c-str">"orders"</span>},
+        Body:    strings.<span class="c-fn">NewReader</span>(query),
+    })
+    <span class="c-kw">if</span> err != <span class="c-kw">nil</span> { log.<span class="c-fn">Fatal</span>(err) }
+
+    fmt.<span class="c-fn">Printf</span>(<span class="c-str">"\ntop matches: total=%d\n"</span>, search.Hits.Total.Value)
+    <span class="c-kw">for</span> _, hit := <span class="c-kw">range</span> search.Hits.Hits {
+        fmt.<span class="c-fn">Printf</span>(<span class="c-str">"  %s → $%.2f\n"</span>, hit.ID, hit.Score)
+    }
+}
+
+<span class="c-kw">func</span> <span class="c-fn">envOr</span>(k, d <span class="c-kw">string</span>) <span class="c-kw">string</span> {
+    <span class="c-kw">if</span> v := os.<span class="c-fn">Getenv</span>(k); v != <span class="c-str">""</span> { <span class="c-kw">return</span> v }
+    <span class="c-kw">return</span> d
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-8 grid md:grid-cols-[180px_1fr] gap-6">
+    <div>
+      <div class="step-chip inline-block px-3 py-1">run</div>
+      <h3 class="display text-xl mt-3 font-semibold">Against the compose sim</h3>
+    </div>
+    <div>
+      <div class="code-block p-4 relative">
+<button class="copy-btn absolute top-2 right-2 px-2 py-1 text-xs mono btn-ghost" onclick="copyCode(this)">copy</button>
+<pre>go mod tidy
+go run .
+
+<span class="c-com"># output:</span>
+<span class="c-com"># indexed 1000 docs in 312ms, errors=false</span>
+<span class="c-com"># top matches: total=500</span>
+<span class="c-com">#   ord-00499 → 1.0</span>
+<span class="c-com">#   ord-00998 → 1.0</span>
+<span class="c-com">#   ...</span></pre>
+      </div>
+      <button onclick="openModal('modal-go-prod')" class="btn-ghost text-xs px-3 py-2 mt-3 mono">[!] Hardening for production</button>
+    </div>
+  </div>
+
+  <div class="mt-10 p-6 border-l-2" style="background:var(--surface);border-color:var(--accent-2);">
+    <div class="mono text-xs" style="color:var(--accent-2);">java note</div>
+    <p class="text-sm mt-2" style="color:var(--ink-dim);">
+      The equivalent in Java uses <span class="mono" style="color:var(--ink);">org.opensearch.client:opensearch-java</span> (OpenSearch) or <span class="mono" style="color:var(--ink);">co.elastic.clients:elasticsearch-java</span> (Elasticsearch). Both expose a typed builder API very similar in shape — same Bulk / Search / Indices methods. See the official client docs linked in §10.
+    </p>
+  </div>
+</section>
+
+<div class="max-w-7xl mx-auto px-6"><div class="section-divider h-px"></div></div>
+
+<!-- =========================  §10 REFERENCES  ========================= -->
+<section id="references" class="max-w-7xl mx-auto px-6 py-20 lg:py-24">
+  <div class="flex items-baseline gap-4 mb-2">
+    <span class="mono text-sm" style="color:var(--accent);">§10</span>
+    <span class="mono text-xs uppercase tracking-[0.2em]" style="color:var(--ink-faint);">References</span>
+  </div>
+  <h2 class="display text-4xl md:text-5xl font-semibold max-w-3xl">Official documentation.</h2>
+  <p class="mt-5 text-lg max-w-3xl" style="color:var(--ink-dim);">
+    This manual is a synthesis. When something doesn&rsquo;t match reality, the sources below are authoritative. URLs may change — search the project doc sites if a link is stale.
+  </p>
+
+  <div class="mt-12 grid md:grid-cols-2 gap-px" style="background:var(--line);">
+    <!-- OpenSearch -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--accent-2);">opensearch</div>
+      <h3 class="display text-2xl mt-2 font-semibold">OpenSearch (Apache 2.0)</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://opensearch.org/docs/latest/" target="_blank">↗ opensearch.org/docs/latest</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/" target="_blank">↗ Docker install guide</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://github.com/opensearch-project/helm-charts" target="_blank">↗ opensearch-project/helm-charts</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://opensearch.org/docs/latest/im-plugin/ism/index/" target="_blank">↗ Index State Management (ISM)</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://opensearch.org/docs/latest/tuning-your-cluster/availability-and-recovery/snapshots/snapshot-restore/" target="_blank">↗ Snapshot &amp; restore</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://github.com/opensearch-project/opensearch-go" target="_blank">↗ Go client (opensearch-go)</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://opensearch.org/docs/latest/clients/java/" target="_blank">↗ Java client</a></li>
+      </ul>
+    </div>
+
+    <!-- Elasticsearch -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--accent);">elasticsearch</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Elastic / Elasticsearch</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html" target="_blank">↗ Elasticsearch reference</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html" target="_blank">↗ Docker install</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://github.com/elastic/helm-charts" target="_blank">↗ elastic/helm-charts</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/index-lifecycle-management.html" target="_blank">↗ Index Lifecycle Management (ILM)</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/snapshot-restore.html" target="_blank">↗ Snapshot &amp; restore</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/current/index.html" target="_blank">↗ Java API client</a></li>
+      </ul>
+    </div>
+
+    <!-- AWS -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--yellow);">aws</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Amazon Web Services</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://docs.aws.amazon.com/opensearch-service/" target="_blank">↗ Amazon OpenSearch Service docs</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://docs.aws.amazon.com/eks/" target="_blank">↗ EKS documentation</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/" target="_blank">↗ AWS Load Balancer Controller</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html" target="_blank">↗ Application Load Balancer guide</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-snapshots.html" target="_blank">↗ Snapshots to S3</a></li>
+      </ul>
+    </div>
+
+    <!-- Azure -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:#5fa3e0;">azure</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Microsoft Azure</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://learn.microsoft.com/azure/aks/" target="_blank">↗ Azure Kubernetes Service docs</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://learn.microsoft.com/azure/application-gateway/ingress-controller-overview" target="_blank">↗ Application Gateway Ingress Controller</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://learn.microsoft.com/azure/aks/concepts-storage" target="_blank">↗ AKS storage classes</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://learn.microsoft.com/azure/storage/blobs/" target="_blank">↗ Azure Blob Storage</a></li>
+      </ul>
+    </div>
+
+    <!-- Monitoring -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:var(--green);">observability</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Monitoring</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://github.com/prometheus-community/elasticsearch_exporter" target="_blank">↗ prometheus-community/elasticsearch_exporter</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://prometheus.io/docs/" target="_blank">↗ Prometheus docs</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://grafana.com/grafana/dashboards/266-elasticsearch/" target="_blank">↗ Grafana dashboard #266 (ES)</a></li>
+      </ul>
+    </div>
+
+    <!-- Kubernetes / Helm -->
+    <div class="p-8" style="background:var(--bg);">
+      <div class="mono text-xs" style="color:#5fa3e0;">kubernetes</div>
+      <h3 class="display text-2xl mt-2 font-semibold">Kubernetes &amp; Helm</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a class="nav-link flex items-center gap-2" href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/" target="_blank">↗ StatefulSet concepts</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://helm.sh/docs/" target="_blank">↗ Helm documentation</a></li>
+        <li><a class="nav-link flex items-center gap-2" href="https://kubernetes.io/docs/concepts/services-networking/ingress/" target="_blank">↗ Ingress concepts</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================  FOOTER  ========================= -->
+<footer class="border-t mt-10" style="border-color:var(--line);">
+  <div class="max-w-7xl mx-auto px-6 py-10 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="14" stroke="#ff7a45" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="8" stroke="#4fd1c5" stroke-width="1.5"/>
+        <circle cx="16" cy="16" r="2" fill="#ff7a45"/>
+      </svg>
+      <span class="mono text-xs" style="color:var(--ink-faint);">search-ops field manual · v1 · 2026-04</span>
+    </div>
+    <div class="mono text-xs" style="color:var(--ink-faint);">
+      not affiliated with elastic nv or the opensearch project
+    </div>
+  </div>
+</footer>
+
+<!-- =========================  MODALS  ========================= -->
+
+<!-- legend -->
+<div id="modal-legend" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-legend')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-legend')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">orientation</div>
+    <h3 class="display text-3xl font-semibold mt-2">How to read this manual</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p>Each section (§01–§10) is a standalone unit. Numbered <span class="mono" style="color:var(--accent);">step · NN</span> chips show order of operations.</p>
+      <p>Buttons marked <span class="mono" style="color:var(--accent);">[i]</span> open informational popups — concepts, trade-offs, history. Buttons marked <span class="mono" style="color:var(--red);">[!]</span> open best-practice or pitfall popups — read these before production.</p>
+      <p>Code blocks have a <span class="mono" style="color:var(--ink);">copy</span> button. All commands assume a Unix-like shell. Replace <span class="mono" style="color:var(--ink);">&lt;endpoint&gt;</span> with your cluster URL.</p>
+      <p>Wherever a command differs between OpenSearch and Elasticsearch, there&rsquo;s a tab. Otherwise both work.</p>
+    </div>
+  </div>
+</div>
+
+<!-- shard sizing -->
+<div id="modal-shards" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-shards')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-shards')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">best practice · shard sizing</div>
+    <h3 class="display text-3xl font-semibold mt-2">Right-size your shards</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p class="font-semibold" style="color:var(--ink);">Target: 10–50 GB per shard. Never exceed ~2B documents per shard.</p>
+      <p>Over-sharding is the single most common operational problem. A shard isn&rsquo;t free — each carries file handles, Lucene segment state, and per-shard overhead. 5,000 tiny shards on a 3-node cluster will blow up the JVM before it holds any real data.</p>
+      <p><strong style="color:var(--ink);">Sizing math:</strong> estimate the index&rsquo;s total size at steady state, divide by ~30 GB, round up. So 600 GB / 30 = 20 primary shards. With 1 replica, that&rsquo;s 40 total shards — fine on 3+ data nodes.</p>
+      <p><strong style="color:var(--ink);">Rule of thumb for shard count per node:</strong> ≤ 20 shards per GB of heap. Node with 32 GB heap ⇒ cap at 640 shards.</p>
+      <p><strong style="color:var(--ink);">Can&rsquo;t resize after creation.</strong> The only ways to change primary count are: reindex into a new index, or use <span class="mono" style="color:var(--ink);">_split</span> / <span class="mono" style="color:var(--ink);">_shrink</span> (strict multiples only).</p>
+    </div>
+  </div>
+</div>
+
+<!-- quorum -->
+<div id="modal-quorum" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-quorum')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-quorum')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">best practice · quorum</div>
+    <h3 class="display text-3xl font-semibold mt-2">Always 3 master-eligible nodes</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p><strong style="color:var(--ink);">Why not 1?</strong> No HA. Master dies, cluster state freezes, no new shards or allocations until you bring it back.</p>
+      <p><strong style="color:var(--ink);">Why not 2?</strong> Split-brain. Network partition separates them, each thinks the other is dead, both try to promote themselves, you get two clusters writing divergent state.</p>
+      <p><strong style="color:var(--ink);">Why 3?</strong> Quorum is (N/2)+1 = 2. One can fail and the other two still form quorum. This is why <span class="mono" style="color:var(--ink);">cluster.initial_master_nodes</span> (ES) / <span class="mono" style="color:var(--ink);">cluster.initial_cluster_manager_nodes</span> (OS) must list all three names at bootstrap.</p>
+      <p><strong style="color:var(--ink);">Dedicated masters in production.</strong> For clusters &gt; 6 data nodes, run 3 separate small master-only nodes (m6g.large is plenty). They&rsquo;re cheap insurance — a GC pause on a data+master node can trigger a false election.</p>
+      <p>Never run 4. Never run even numbers. 5 or 7 are fine for very large clusters where master load itself is high.</p>
+    </div>
+  </div>
+</div>
+
+<!-- heap -->
+<div id="modal-heap" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-heap')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-heap')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">best practice · JVM heap</div>
+    <h3 class="display text-3xl font-semibold mt-2">The 50/50 rule &amp; 31 GB ceiling</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p><strong style="color:var(--ink);">Set Xms = Xmx.</strong> Always. Never let the JVM resize the heap — it thrashes.</p>
+      <p><strong style="color:var(--ink);">50% of RAM, up to 31 GB.</strong> Linux uses the rest for filesystem cache, which Lucene depends on heavily. A cluster with 64 GB nodes running <code class="mono" style="color:var(--ink);">-Xms48g -Xmx48g</code> will be slower than one running <code class="mono" style="color:var(--ink);">-Xms31g -Xmx31g</code>.</p>
+      <p><strong style="color:var(--ink);">Why 31 GB, not 32?</strong> Above ~32 GB the JVM disables compressed object pointers, and every object reference doubles in size. You get less effective heap with a larger heap. 31 GB is the safe ceiling.</p>
+      <p><strong style="color:var(--ink);">Node bigger than 64 GB?</strong> Run two processes on it, or just use smaller instance types. Lucene loves cache; it does not love giant heaps.</p>
+    </div>
+  </div>
+</div>
+
+<!-- vm.max_map_count -->
+<div id="modal-vm-map" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-vm-map')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-vm-map')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">kernel setting</div>
+    <h3 class="display text-3xl font-semibold mt-2">vm.max_map_count = 262144</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p>Lucene (the storage engine under both ES and OpenSearch) memory-maps its index files. Each segment file is one mmap region. The default Linux limit of 65,530 mmap regions per process is too low once you have real data.</p>
+      <p>If this isn&rsquo;t raised, startup logs a bootstrap check failure and the node refuses to start. In Docker, Kubernetes, and WSL this setting is on the <em>host</em>, not inside the container.</p>
+      <p><strong style="color:var(--ink);">Persist it:</strong> <code class="mono" style="color:var(--ink);">echo 'vm.max_map_count=262144' | sudo tee /etc/sysctl.d/99-opensearch.conf</code></p>
+      <p>On Kubernetes, use a privileged init container as shown in §03, or a DaemonSet that sets it on every node once.</p>
+    </div>
+  </div>
+</div>
+
+<!-- compose best practices -->
+<div id="modal-compose-bp" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-compose-bp')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-compose-bp')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">pitfalls · compose</div>
+    <h3 class="display text-3xl font-semibold mt-2">Docker Compose gotchas</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <p><strong style="color:var(--ink);">1. Don&rsquo;t use this in production.</strong> Compose has no scheduler, no self-healing, no anti-affinity. A rebooted host = all three nodes down at once.</p>
+      <p><strong style="color:var(--ink);">2. Memory lock vs swap.</strong> <code class="mono" style="color:var(--ink);">bootstrap.memory_lock=true</code> only works if <code class="mono" style="color:var(--ink);">memlock: -1</code> is set. Without it you&rsquo;ll see GC pauses as the JVM pages to disk.</p>
+      <p><strong style="color:var(--ink);">3. Volumes are per-compose.</strong> <code class="mono" style="color:var(--ink);">docker compose down -v</code> wipes all data. Use <code class="mono" style="color:var(--ink);">docker compose down</code> without <code class="mono" style="color:var(--ink);">-v</code> unless you mean it.</p>
+      <p><strong style="color:var(--ink);">4. Default password is enforced.</strong> OpenSearch 2.12+ requires <code class="mono" style="color:var(--ink);">OPENSEARCH_INITIAL_ADMIN_PASSWORD</code> to be set at first boot, meeting strong-password policy, or the cluster won&rsquo;t start.</p>
+      <p><strong style="color:var(--ink);">5. Self-signed TLS.</strong> The demo certs are trust-all. Never expose port 9200 outside localhost on a compose setup.</p>
+    </div>
+  </div>
+</div>
+
+<!-- antiaffinity -->
+<div id="modal-antiaffinity" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-antiaffinity')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-antiaffinity')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">best practice · scheduling</div>
+    <h3 class="display text-3xl font-semibold mt-2">Why antiAffinity=hard</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p>Without a hard pod anti-affinity rule, Kubernetes may schedule all three cluster pods onto the same node (especially on small clusters or during evictions). When that node reboots, you lose the entire cluster — primary <em>and</em> replica shards, at the same time.</p>
+      <p><strong style="color:var(--ink);">Hard vs soft:</strong></p>
+      <ul class="list-disc pl-5 space-y-1">
+        <li><code class="mono" style="color:var(--ink);">hard</code> = <em>requiredDuringSchedulingIgnoredDuringExecution</em> — pod stays Pending until it can be placed on a different node. Safe.</li>
+        <li><code class="mono" style="color:var(--ink);">soft</code> = <em>preferredDuringScheduling</em> — scheduler tries, gives up if no options. Risky.</li>
+      </ul>
+      <p><strong style="color:var(--ink);">Even better in prod:</strong> topology spread across availability zones using <code class="mono" style="color:var(--ink);">topologySpreadConstraints</code> with <code class="mono" style="color:var(--ink);">topology.kubernetes.io/zone</code>. Combined with OpenSearch&rsquo;s <code class="mono" style="color:var(--ink);">cluster.routing.allocation.awareness.attributes: zone</code>, replicas are guaranteed in different AZs.</p>
+    </div>
+  </div>
+</div>
+
+<!-- AWS managed vs self -->
+<div id="modal-aws-mgmt" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-aws-mgmt')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-aws-mgmt')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">trade-off · aws patterns</div>
+    <h3 class="display text-3xl font-semibold mt-2">Managed OpenSearch vs EKS self-managed</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <table class="w-full mono text-xs">
+        <thead><tr style="color:var(--ink);">
+          <th class="text-left py-2 border-b" style="border-color:var(--line-2);"></th>
+          <th class="text-left py-2 border-b" style="border-color:var(--line-2);">Managed</th>
+          <th class="text-left py-2 border-b" style="border-color:var(--line-2);">EKS self-managed</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="py-2 pr-3">ops burden</td><td>low</td><td>high</td></tr>
+          <tr><td class="py-2 pr-3">plugin flexibility</td><td>limited list</td><td>any plugin</td></tr>
+          <tr><td class="py-2 pr-3">version lag</td><td>~6–12 months behind</td><td>latest</td></tr>
+          <tr><td class="py-2 pr-3">cost</td><td>≈ 20–30% premium</td><td>raw EC2</td></tr>
+          <tr><td class="py-2 pr-3">custom JVM / SSL CA</td><td>no</td><td>yes</td></tr>
+          <tr><td class="py-2 pr-3">fine-grained IAM</td><td>native</td><td>manual (IRSA)</td></tr>
+          <tr><td class="py-2 pr-3">recovery from RED state</td><td>support ticket</td><td>your 3 am</td></tr>
+        </tbody>
+      </table>
+      <p class="mt-4"><strong style="color:var(--ink);">Default to managed.</strong> Only pick self-managed on EKS when you have a concrete reason the managed service can&rsquo;t meet (custom plugin, custom build, regulatory isolation).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ALB -->
+<div id="modal-alb" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-alb')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-alb')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">gotchas · ALB</div>
+    <h3 class="display text-3xl font-semibold mt-2">AWS ALB in front of OpenSearch</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <p><strong style="color:var(--ink);">success-codes must include 401.</strong> If security is enabled, <code class="mono" style="color:var(--ink);">/_cluster/health</code> returns 401 without auth. The ALB marks targets unhealthy unless you accept 401 as healthy. <code class="mono" style="color:var(--ink);">success-codes: "200,401"</code>.</p>
+      <p><strong style="color:var(--ink);">backend-protocol: HTTPS.</strong> OpenSearch speaks TLS on 9200 in secure mode. Don&rsquo;t terminate TLS at the ALB and talk plaintext backend unless you&rsquo;ve explicitly disabled the security plugin.</p>
+      <p><strong style="color:var(--ink);">target-type: ip.</strong> Use IP mode (not instance) when pods are behind a CNI like AWS VPC-CNI — ALB talks directly to pod IPs, no extra NAT hop.</p>
+      <p><strong style="color:var(--ink);">scheme: internal.</strong> Never expose the cluster to the public internet. Use an internal ALB + private Route53 zone + VPN / client VPN for operator access.</p>
+      <p><strong style="color:var(--ink);">ALB has a 60s idle timeout.</strong> Long-running tasks (reindex, snapshot status polling) will get chopped. Use <code class="mono" style="color:var(--ink);">idle_timeout.timeout_seconds</code> annotation to bump it, or use <code class="mono" style="color:var(--ink);">wait_for_completion=false</code> on long operations.</p>
+    </div>
+  </div>
+</div>
+
+<!-- mapping -->
+<div id="modal-mapping" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-mapping')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-mapping')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">mapping · pitfalls</div>
+    <h3 class="display text-3xl font-semibold mt-2">keyword vs text — they are not the same</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <p><code class="mono" style="color:var(--ink);">text</code> — analyzed. String is tokenized, lowercased, stemmed. Good for full-text search (<code class="mono" style="color:var(--ink);">"quick brown fox" → ["quick","brown","fox"]</code>). Bad for exact matches, aggregations, sorting.</p>
+      <p><code class="mono" style="color:var(--ink);">keyword</code> — not analyzed. Stored as-is. Good for exact match, terms aggregations, sorting, filtering. Bad for free-text search.</p>
+      <p><strong style="color:var(--ink);">The common trick</strong> — map both, as in the <code class="mono" style="color:var(--ink);">customer</code> field in §06. The outer field is <code class="mono" style="color:var(--ink);">keyword</code> (for filtering/aggregation), with a sub-field <code class="mono" style="color:var(--ink);">.text</code> for free-text search. Query both where you need both.</p>
+      <p><strong style="color:var(--ink);">Don&rsquo;t rely on dynamic mapping for IDs.</strong> A numeric-looking ID like "12345" gets mapped as <code class="mono" style="color:var(--ink);">long</code>, and then "12345A" breaks everything. Always declare IDs as <code class="mono" style="color:var(--ink);">keyword</code> explicitly.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ISM hot-warm-cold -->
+<div id="modal-ism" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-ism')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-ism')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--accent);">pattern · tiering</div>
+    <h3 class="display text-3xl font-semibold mt-2">Hot-warm-cold data tiering</h3>
+    <div class="mt-6 space-y-4 text-sm" style="color:var(--ink-dim);">
+      <p>Most time-series workloads have 80% of queries hitting the most recent 20% of data. Tiering exploits that with cheaper storage for older indices.</p>
+      <ul class="space-y-2">
+        <li><strong style="color:var(--ink);">hot</strong> — latest 7 days, nvme / gp3, high replica count, actively indexed.</li>
+        <li><strong style="color:var(--ink);">warm</strong> — 7–30 days, gp3 or throughput-optimized HDD (st1), replicas = 1, read-mostly. Shrink + forcemerge before transition.</li>
+        <li><strong style="color:var(--ink);">cold</strong> — 30–90 days, local st1 or searchable snapshots on S3, replicas = 0.</li>
+        <li><strong style="color:var(--ink);">delete</strong> — after retention horizon.</li>
+      </ul>
+      <p>Implement via ISM state transitions with <code class="mono" style="color:var(--ink);">index.routing.allocation.require.box_type: warm</code> + node attributes <code class="mono" style="color:var(--ink);">node.attr.box_type=warm</code>.</p>
+    </div>
+  </div>
+</div>
+
+<!-- watermarks -->
+<div id="modal-watermarks" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-watermarks')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-watermarks')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">thresholds · disk</div>
+    <h3 class="display text-3xl font-semibold mt-2">Disk watermarks — 85 / 90 / 95</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <p>The cluster auto-reacts to disk pressure via three watermarks:</p>
+      <ul class="space-y-2">
+        <li><strong style="color:var(--ink);">low (85%)</strong> — no new shards allocated to this node.</li>
+        <li><strong style="color:var(--ink);">high (90%)</strong> — tries to move shards <em>away</em> from this node. More disk pressure and more rebalance traffic.</li>
+        <li><strong style="color:var(--ink);">flood (95%)</strong> — index blocks activate. All indices with shards on this node become read-only. This is usually what takes you down.</li>
+      </ul>
+      <p><strong style="color:var(--ink);">Alert at 75%</strong> — you need 10% of headroom to resolve before watermarks trigger. By the time the low watermark fires, it&rsquo;s already too late to avoid rebalance.</p>
+      <p>Recovery from flood: <code class="mono" style="color:var(--ink);">PUT _all/_settings {"index.blocks.read_only_allow_delete":null}</code> then add disk / delete old indices.</p>
+    </div>
+  </div>
+</div>
+
+<!-- restore best practices -->
+<div id="modal-restore-bp" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-restore-bp')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-restore-bp')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">DR drill checklist</div>
+    <h3 class="display text-3xl font-semibold mt-2">Restore from backup — best practices</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <ol class="list-decimal pl-5 space-y-2">
+        <li><strong style="color:var(--ink);">Test restore quarterly.</strong> An untested backup is a claim, not a backup.</li>
+        <li><strong style="color:var(--ink);">Restore to a separate cluster.</strong> Never test by restoring over production. Spin up a temporary cluster, restore, count docs, run sample queries, tear down.</li>
+        <li><strong style="color:var(--ink);">Rename on restore.</strong> Use <code class="mono" style="color:var(--ink);">rename_pattern</code> / <code class="mono" style="color:var(--ink);">rename_replacement</code> so you don&rsquo;t conflict with live indices.</li>
+        <li><strong style="color:var(--ink);">Verify doc counts, not just &ldquo;green&rdquo;.</strong> <code class="mono" style="color:var(--ink);">_count</code> + sample <code class="mono" style="color:var(--ink);">_search</code> for known records.</li>
+        <li><strong style="color:var(--ink);">Watch version compatibility.</strong> You cannot restore a snapshot into a cluster more than one major version older than the source. Restoring a 2.x snapshot into a 1.x cluster will fail.</li>
+        <li><strong style="color:var(--ink);">Repository credentials are per-cluster.</strong> A new cluster restoring from the same S3 bucket needs the same IAM role / access keys registered.</li>
+        <li><strong style="color:var(--ink);">Record your RTO/RPO.</strong> Daily snapshot + 30 minute restore = RPO ≤ 24h, RTO ≈ 30min. Document it.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- go client prod hardening -->
+<div id="modal-go-prod" class="modal-backdrop" onclick="if(event.target===this)closeModal('modal-go-prod')">
+  <div class="modal-panel p-8">
+    <button onclick="closeModal('modal-go-prod')" class="absolute top-4 right-4 mono text-sm" style="color:var(--ink-faint);">[esc] close</button>
+    <div class="mono text-xs" style="color:var(--red);">production · hardening</div>
+    <h3 class="display text-3xl font-semibold mt-2">Hardening the Go client for production</h3>
+    <div class="mt-6 space-y-3 text-sm" style="color:var(--ink-dim);">
+      <ol class="list-decimal pl-5 space-y-2">
+        <li><strong style="color:var(--ink);">Drop InsecureSkipVerify.</strong> Load the cluster CA into <code class="mono" style="color:var(--ink);">RootCAs</code>. Never trust-all in production.</li>
+        <li><strong style="color:var(--ink);">Use the bulk indexer helper,</strong> not a raw string builder. <code class="mono" style="color:var(--ink);">opensearchutil.NewBulkIndexer</code> handles batching, backpressure, and retry.</li>
+        <li><strong style="color:var(--ink);">Set timeouts.</strong> Every request needs a <code class="mono" style="color:var(--ink);">context.WithTimeout</code>. The client default is zero == forever, which will hang goroutines on a bad node.</li>
+        <li><strong style="color:var(--ink);">Retry with backoff</strong> on 429 (too many requests) and 5xx. Don&rsquo;t retry 4xx.</li>
+        <li><strong style="color:var(--ink);">Set a connection pool size</strong> (<code class="mono" style="color:var(--ink);">MaxIdleConnsPerHost</code>) proportional to concurrency. Default 2 will bottleneck.</li>
+        <li><strong style="color:var(--ink);">Instrument it.</strong> Emit Prometheus metrics for bulk batch size, bulk errors, search latency p50/p95/p99.</li>
+        <li><strong style="color:var(--ink);">Don&rsquo;t refresh after every write.</strong> <code class="mono" style="color:var(--ink);">refresh=true</code> is an antipattern in hot paths — use the index&rsquo;s <code class="mono" style="color:var(--ink);">refresh_interval</code> setting (default 1s).</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- =========================  JS  ========================= -->
+<script>
+// modal
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    document.body.style.overflow = '';
+  }
+});
+
+// tab groups — support multiple independent groups on the page
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.tab;
+    const group = btn.parentElement;
+    group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // find all sibling panels within the nearest common ancestor section/container
+    let scope = group.parentElement;
+    scope.querySelectorAll('.tab-panel').forEach(p => {
+      if (p.dataset.panel === target) p.classList.remove('hidden');
+      else p.classList.add('hidden');
+    });
+  });
+});
+
+// copy code
+function copyCode(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  const text = pre ? pre.innerText : btn.parentElement.innerText.replace('copy', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerText;
+    btn.innerText = 'copied ✓';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.innerText = original;
+      btn.classList.remove('copied');
+    }, 1400);
+  });
+}
+
+// active nav on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-link');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { rootMargin: '-40% 0px -55% 0px' });
+sections.forEach(s => observer.observe(s));
+
+// smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+</script>
+
+</body>
+</html>

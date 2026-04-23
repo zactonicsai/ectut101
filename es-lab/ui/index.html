@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Elasticsearch Lab · Teaching Console</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; background:#0f172a; color:#e2e8f0; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .card { background:#1e293b; border:1px solid #334155; }
+  .card-hdr { border-bottom:1px solid #334155; background:#0f172a; }
+  .input { background:#0f172a; border:1px solid #334155; color:#e2e8f0; }
+  .input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 1px #3b82f6; }
+  .btn { transition: all .15s; font-weight:500; }
+  .btn-primary { background:#3b82f6; color:white; }
+  .btn-primary:hover { background:#2563eb; }
+  .btn-danger  { background:#dc2626; color:white; }
+  .btn-danger:hover { background:#b91c1c; }
+  .btn-ghost { background:#334155; color:#e2e8f0; }
+  .btn-ghost:hover { background:#475569; }
+  .tag { background:#334155; color:#cbd5e1; padding:2px 8px; border-radius:3px; font-size:11px; }
+  .pulse-green { box-shadow:0 0 0 0 rgba(34,197,94,0.7); animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%   { box-shadow:0 0 0 0 rgba(34,197,94,.7); }
+    70%  { box-shadow:0 0 0 8px rgba(34,197,94,0); }
+    100% { box-shadow:0 0 0 0 rgba(34,197,94,0); }
+  }
+  .highlight em { background:#fbbf24; color:#0f172a; font-style:normal; padding:0 2px; border-radius:2px; }
+  details[open] summary .chev { transform: rotate(90deg); }
+  .chev { transition: transform .2s; display:inline-block; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER / HEALTH BAR -->
+<header class="border-b border-slate-700 bg-slate-900 sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold flex items-center gap-2">
+        <span class="mono text-blue-400">&lt;/&gt;</span> Elasticsearch Teaching Lab
+      </h1>
+      <p class="text-xs text-slate-400 mono">2-node cluster · FastAPI · Go watchdog</p>
+    </div>
+    <div id="health-bar" class="flex items-center gap-4 text-sm">
+      <span class="text-slate-500">loading…</span>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="border-b border-slate-700 bg-slate-800">
+  <div class="max-w-7xl mx-auto px-6 flex gap-1">
+    <button data-tab="build"    class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-400">① Build Index</button>
+    <button data-tab="load"     class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">② Load Data</button>
+    <button data-tab="search"   class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">③ Search</button>
+    <button data-tab="cluster"  class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">④ Cluster &amp; Shards</button>
+    <button data-tab="failover" class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">⑤ Simulate Failover</button>
+  </div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-6 py-8">
+
+  <!-- =============== TAB 1: BUILD INDEX =============== -->
+  <section data-panel="build" class="panel">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold">Build an index</h2>
+      <p class="text-slate-400 mt-1">Pick shards, replicas, and which fields to map as searchable <span class="mono text-amber-400">text</span> vs exact-match <span class="mono text-emerald-400">keyword</span>.</p>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="card">
+        <div class="card-hdr px-5 py-3"><h3 class="font-semibold text-sm">Create index</h3></div>
+        <form id="create-index-form" class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Index name</label>
+            <input name="name" required class="input w-full px-3 py-2 rounded mono text-sm" value="articles" placeholder="e.g. articles">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Primary shards
+                <span class="text-slate-500 ml-1">↳ splits data</span>
+              </label>
+              <input name="shards" type="number" min="1" max="10" value="2" class="input w-full px-3 py-2 rounded mono text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Replicas
+                <span class="text-slate-500 ml-1">↳ enables failover</span>
+              </label>
+              <input name="replicas" type="number" min="0" max="5" value="1" class="input w-full px-3 py-2 rounded mono text-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">
+              <span class="text-amber-400 mono">text</span> fields · analyzed, full-text search
+            </label>
+            <input name="text_fields" class="input w-full px-3 py-2 rounded mono text-sm" value="title, content" placeholder="comma-separated">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">
+              <span class="text-emerald-400 mono">keyword</span> fields · exact match, aggregatable (metadata)
+            </label>
+            <input name="keyword_fields" class="input w-full px-3 py-2 rounded mono text-sm" value="author, tags, category" placeholder="e.g. author, tags, category">
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn btn-primary px-4 py-2 rounded text-sm">Create Index</button>
+            <button type="button" id="preview-mapping" class="btn btn-ghost px-4 py-2 rounded text-sm">Preview mapping JSON</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr px-5 py-3 flex justify-between items-center">
+          <h3 class="font-semibold text-sm">Existing indices</h3>
+          <button id="refresh-indices" class="text-xs mono text-blue-400 hover:text-blue-300">↻ refresh</button>
+        </div>
+        <div id="indices-list" class="p-5 space-y-2 text-sm mono text-slate-400">loading…</div>
+      </div>
+    </div>
+
+    <details class="mt-6 card p-5">
+      <summary class="cursor-pointer text-sm font-medium flex items-center gap-2">
+        <span class="chev">▸</span> What&rsquo;s actually happening?
+      </summary>
+      <div class="mt-4 text-sm text-slate-300 space-y-2 pl-4">
+        <p><strong class="text-amber-400">Primary shards</strong> split your index across the cluster. With 2 shards, half your documents go to one node, half to the other. More shards = more parallelism but more overhead.</p>
+        <p><strong class="text-emerald-400">Replicas</strong> are copies on <em>other</em> nodes. Setting <span class="mono bg-slate-900 px-1 rounded">replicas=1</span> on a 2-shard index creates 4 total shards (2 primary + 2 replica). If one node dies, the other still has every document.</p>
+        <p><strong class="text-blue-400">text vs keyword:</strong> <span class="mono">text</span> fields get tokenized and lowercased (search "machines" and find "machine"). <span class="mono">keyword</span> fields are stored literally — perfect for tags, IDs, and filtering.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- =============== TAB 2: LOAD DATA =============== -->
+  <section data-panel="load" class="panel hidden">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold">Load documents</h2>
+      <p class="text-slate-400 mt-1">Upload a text file, or index a JSON document. Metadata fields become keyword-searchable.</p>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+      <!-- upload a file -->
+      <div class="card">
+        <div class="card-hdr px-5 py-3"><h3 class="font-semibold text-sm">Upload text file</h3></div>
+        <form id="upload-form" class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Target index</label>
+            <input name="index" value="articles" class="input w-full px-3 py-2 rounded mono text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">File (.txt / .md)</label>
+            <input name="file" type="file" required accept=".txt,.md,.log,.json"
+              class="input w-full px-3 py-2 rounded text-sm file:mr-3 file:px-3 file:py-1 file:bg-slate-700 file:border-0 file:text-slate-200 file:rounded">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Author <span class="tag">keyword</span></label>
+              <input name="author" value="alice" class="input w-full px-3 py-2 rounded mono text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Tags <span class="tag">keyword</span></label>
+              <input name="tags" value="demo,internal" placeholder="comma-separated" class="input w-full px-3 py-2 rounded mono text-sm">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary px-4 py-2 rounded text-sm">Upload &amp; Index</button>
+        </form>
+      </div>
+
+      <!-- JSON doc -->
+      <div class="card">
+        <div class="card-hdr px-5 py-3"><h3 class="font-semibold text-sm">Index a JSON document</h3></div>
+        <form id="doc-form" class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Target index</label>
+            <input name="index" value="articles" class="input w-full px-3 py-2 rounded mono text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Title <span class="tag">text</span></label>
+            <input name="title" required class="input w-full px-3 py-2 rounded text-sm" placeholder="e.g. Getting started">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Content <span class="tag">text</span></label>
+            <textarea name="content" required rows="4" class="input w-full px-3 py-2 rounded text-sm" placeholder="body of the document…"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">
+              Metadata <span class="tag">keyword</span> <span class="text-slate-500 text-[10px]">JSON object</span>
+            </label>
+            <textarea name="metadata" rows="3" class="input w-full px-3 py-2 rounded mono text-xs"
+              placeholder='{"author":"alice","tags":["demo"],"category":"intro"}'>{"author":"alice","tags":["demo"],"category":"intro"}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary px-4 py-2 rounded text-sm">Index Document</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="load-log" class="mt-6 card p-5 text-sm mono text-slate-400 max-h-64 overflow-y-auto">
+      <div class="text-slate-500 text-xs mb-2">activity log</div>
+      <div class="text-slate-600">— nothing yet —</div>
+    </div>
+  </section>
+
+  <!-- =============== TAB 3: SEARCH =============== -->
+  <section data-panel="search" class="panel hidden">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold">Search the index</h2>
+      <p class="text-slate-400 mt-1">Three modes, combinable: free-text, field-scoped, and exact keyword.</p>
+    </div>
+
+    <form id="search-form" class="card p-5 grid md:grid-cols-12 gap-3 items-end">
+      <div class="md:col-span-4">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Query (free text)</label>
+        <input name="q" class="input w-full px-3 py-2 rounded text-sm" placeholder="e.g. machine learning">
+      </div>
+      <div class="md:col-span-3">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Restrict to field <span class="text-slate-500 text-[10px]">optional</span></label>
+        <input name="field" class="input w-full px-3 py-2 rounded mono text-sm" placeholder="e.g. title">
+      </div>
+      <div class="md:col-span-3">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Keyword filter <span class="text-slate-500 text-[10px]">field:value</span></label>
+        <input name="keyword" class="input w-full px-3 py-2 rounded mono text-sm" placeholder="e.g. author:alice">
+      </div>
+      <div class="md:col-span-2 flex gap-2">
+        <input name="index" value="articles" class="input w-full px-3 py-2 rounded mono text-sm">
+      </div>
+      <div class="md:col-span-12">
+        <button type="submit" class="btn btn-primary px-4 py-2 rounded text-sm">Search</button>
+        <span id="search-stats" class="ml-4 text-xs mono text-slate-500"></span>
+      </div>
+    </form>
+
+    <!-- query chips for quick learning -->
+    <div class="mt-4 flex flex-wrap gap-2 text-xs">
+      <span class="text-slate-500 mono">try:</span>
+      <button class="chip tag hover:bg-slate-600" data-q="shards replicas"                                                           data-field=""     data-keyword="">full-text: shards replicas</button>
+      <button class="chip tag hover:bg-slate-600" data-q=""                                                                          data-field=""     data-keyword="author:alice">keyword: author=alice</button>
+      <button class="chip tag hover:bg-slate-600" data-q="indexing"                                                                  data-field="content" data-keyword="">field: content contains 'indexing'</button>
+      <button class="chip tag hover:bg-slate-600" data-q="practices"                                                                 data-field=""     data-keyword="tags:performance">combined: 'practices' AND tag=performance</button>
+    </div>
+
+    <div id="search-results" class="mt-6 space-y-3"></div>
+  </section>
+
+  <!-- =============== TAB 4: CLUSTER & SHARDS =============== -->
+  <section data-panel="cluster" class="panel hidden">
+    <div class="mb-6 flex justify-between items-start">
+      <div>
+        <h2 class="text-2xl font-bold">Cluster &amp; shards</h2>
+        <p class="text-slate-400 mt-1">Where is each shard living right now? This is the same data that flips during failover.</p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <label class="text-xs text-slate-400 mono">
+          <input type="checkbox" id="auto-refresh" checked class="mr-1"> auto-refresh (3s)
+        </label>
+        <button id="refresh-shards" class="btn btn-ghost px-3 py-2 rounded text-xs mono">↻ refresh</button>
+      </div>
+    </div>
+
+    <div id="shards-grid" class="grid md:grid-cols-2 gap-4"></div>
+
+    <div class="mt-6 card p-5">
+      <h3 class="font-semibold text-sm mb-3">Live index settings</h3>
+      <div class="grid md:grid-cols-[1fr_auto_auto] gap-2 items-end">
+        <div>
+          <label class="block text-xs text-slate-300 mb-1">Index</label>
+          <input id="settings-index" value="articles" class="input w-full px-3 py-2 rounded mono text-sm">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-300 mb-1">Replicas</label>
+          <input id="settings-replicas" type="number" min="0" max="5" value="1" class="input w-24 px-3 py-2 rounded mono text-sm">
+        </div>
+        <button id="apply-settings" class="btn btn-primary px-4 py-2 rounded text-sm">Apply</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Changing replicas live causes the cluster to rebuild shard copies — good way to see shard traffic in the grid above.</p>
+    </div>
+  </section>
+
+  <!-- =============== TAB 5: FAILOVER =============== -->
+  <section data-panel="failover" class="panel hidden">
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold">Simulate node failover</h2>
+      <p class="text-slate-400 mt-1">Drop a node, watch replicas get promoted. Recover it, watch shards rebalance.</p>
+    </div>
+
+    <div class="grid lg:grid-cols-[1fr_1fr] gap-6">
+      <div class="card p-5">
+        <h3 class="font-semibold text-sm mb-3">Step-by-step drill</h3>
+        <ol class="space-y-4 text-sm">
+          <li class="flex gap-3"><span class="tag">1</span>
+            <div>Open <strong>Tab ④ Cluster &amp; Shards</strong> in another window. Note every shard is <span class="mono text-emerald-400">STARTED</span> and assigned to a node.</div>
+          </li>
+          <li class="flex gap-3"><span class="tag">2</span>
+            <div>In your terminal, kill one Elasticsearch node:
+              <pre class="mono text-xs bg-slate-900 p-2 mt-1 rounded">docker stop es02</pre>
+            </div>
+          </li>
+          <li class="flex gap-3"><span class="tag">3</span>
+            <div>Within ~10s the cluster health bar turns <span class="mono text-amber-400">yellow</span> — replicas for shards that were on es02 are now <span class="mono">UNASSIGNED</span>. Data is still fully available; reads come from the surviving primaries.</div>
+          </li>
+          <li class="flex gap-3"><span class="tag">4</span>
+            <div>Check the watchdog logs to see the failover recorded:
+              <pre class="mono text-xs bg-slate-900 p-2 mt-1 rounded">docker logs -f watchdog</pre>
+            </div>
+          </li>
+          <li class="flex gap-3"><span class="tag">5</span>
+            <div>Run a search here or via the Search tab — it keeps working. The Python client automatically uses the healthy node.</div>
+          </li>
+          <li class="flex gap-3"><span class="tag">6</span>
+            <div>Bring it back:
+              <pre class="mono text-xs bg-slate-900 p-2 mt-1 rounded">docker start es02</pre>
+              Watch the shards return to green over ~30s as replicas are rebuilt.
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="card p-5">
+        <h3 class="font-semibold text-sm mb-3">Why this works</h3>
+        <div class="space-y-3 text-sm text-slate-300">
+          <p>When you created the index with <span class="mono text-emerald-400">replicas: 1</span>, the cluster allocated:</p>
+          <pre class="mono text-xs bg-slate-900 p-3 rounded">
+shard-0 primary  → es01   shard-0 replica  → es02
+shard-1 primary  → es02   shard-1 replica  → es01</pre>
+          <p>When <span class="mono">es02</span> disappears, the cluster already has a full copy of shard-1 on <span class="mono">es01</span> — it promotes that replica to primary instantly. Writes keep working, reads keep working.</p>
+          <p>This is why <strong>replicas &gt;= 1</strong> is the minimum for production. With replicas=0, a single node dying means permanent data loss on whatever shards it held.</p>
+          <p class="text-xs text-slate-400 pt-2 border-t border-slate-700">The Go <span class="mono">watchdog</span> is running in its own container and polls both nodes every 3s — in a real system that signal would page on-call or trigger reallocation scripts.</p>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-slate-700">
+          <h4 class="font-semibold text-sm mb-2">Quick test — index a doc <em>while a node is down</em></h4>
+          <button id="stress-index" class="btn btn-danger px-4 py-2 rounded text-sm">Index 10 docs now</button>
+          <div id="stress-log" class="mt-3 text-xs mono text-slate-400"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- floating mapping preview modal -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6" onclick="if(event.target===this)hideModal()">
+  <div class="card max-w-2xl w-full">
+    <div class="card-hdr px-5 py-3 flex justify-between items-center">
+      <h3 class="font-semibold text-sm" id="modal-title">Mapping preview</h3>
+      <button onclick="hideModal()" class="text-slate-400 hover:text-slate-200">✕</button>
+    </div>
+    <pre id="modal-body" class="p-5 mono text-xs overflow-x-auto text-slate-300"></pre>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// Talk to the FastAPI backend.  The API container is exposed on :8000 on the
+// Docker host.  Because the UI loads from :8080, CORS is enabled server-side.
+// ============================================================================
+const API = "http://" + location.hostname + ":8000";
+
+// -------- tab switcher --------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('border-blue-500', 'text-blue-400');
+      b.classList.add('border-transparent', 'text-slate-400');
+    });
+    btn.classList.remove('border-transparent', 'text-slate-400');
+    btn.classList.add('border-blue-500', 'text-blue-400');
+
+    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+    document.querySelector(`[data-panel="${btn.dataset.tab}"]`).classList.remove('hidden');
+
+    if (btn.dataset.tab === 'cluster')  loadShards();
+    if (btn.dataset.tab === 'build')    loadIndices();
+  });
+});
+
+// -------- health polling --------
+async function pollHealth() {
+  try {
+    const r = await fetch(API + '/health');
+    const data = await r.json();
+    const bar = document.getElementById('health-bar');
+    const cluster = data.cluster || {};
+    const status = cluster.status || 'unknown';
+    const statusColor = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' }[status] || '#64748b';
+    bar.innerHTML = `
+      <div class="flex gap-2">
+        ${data.nodes.map(n => `
+          <div class="flex items-center gap-1.5 mono text-xs">
+            <span class="w-2 h-2 rounded-full ${n.status==='up'?'pulse-green':''}"
+                  style="background:${n.status==='up' ? '#22c55e' : '#ef4444'}"></span>
+            ${n.url.replace('http://','').replace(':9200','').replace('es01','es01 :9200').replace('es02','es02 :9201')}
+          </div>`).join('')}
+      </div>
+      <div class="flex items-center gap-2 px-3 py-1 rounded" style="background:${statusColor}22;color:${statusColor}">
+        <span class="w-2 h-2 rounded-full" style="background:${statusColor}"></span>
+        <span class="mono text-xs font-semibold uppercase">${status}</span>
+      </div>
+      <div class="mono text-xs text-slate-400">
+        ${cluster.number_of_nodes || 0} nodes · ${cluster.active_shards || 0} shards · ${cluster.unassigned_shards || 0} unassigned
+      </div>`;
+  } catch (e) {
+    document.getElementById('health-bar').innerHTML =
+      `<span class="text-red-400 text-xs mono">API unreachable · is the stack running?</span>`;
+  }
+}
+pollHealth();
+setInterval(pollHealth, 3000);
+
+// -------- create index --------
+document.getElementById('create-index-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = {
+    name: fd.get('name').trim(),
+    shards: +fd.get('shards'),
+    replicas: +fd.get('replicas'),
+    text_fields:    fd.get('text_fields').split(',').map(s => s.trim()).filter(Boolean),
+    keyword_fields: fd.get('keyword_fields').split(',').map(s => s.trim()).filter(Boolean),
+  };
+  const r = await fetch(API + '/indices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  if (r.ok) {
+    showModal('Index created ✓', JSON.stringify(data, null, 2));
+    loadIndices();
+  } else {
+    showModal('Error', JSON.stringify(data, null, 2));
+  }
+});
+
+document.getElementById('preview-mapping').addEventListener('click', () => {
+  const fd = new FormData(document.getElementById('create-index-form'));
+  const text = fd.get('text_fields').split(',').map(s => s.trim()).filter(Boolean);
+  const kw = fd.get('keyword_fields').split(',').map(s => s.trim()).filter(Boolean);
+  const mapping = {
+    settings: { number_of_shards: +fd.get('shards'), number_of_replicas: +fd.get('replicas'), refresh_interval: "1s" },
+    mappings: { properties: { ingested_at: { type: "date" } } },
+  };
+  text.forEach(f => mapping.mappings.properties[f] = { type: "text", fields: { keyword: { type: "keyword", ignore_above: 256 } } });
+  kw.forEach(f   => mapping.mappings.properties[f] = { type: "keyword" });
+  showModal('Mapping that will be sent to ES', JSON.stringify(mapping, null, 2));
+});
+
+// -------- list indices --------
+async function loadIndices() {
+  const el = document.getElementById('indices-list');
+  try {
+    const r = await fetch(API + '/indices');
+    const rows = await r.json();
+    if (!rows.length) { el.innerHTML = '<div class="text-slate-500">no indices yet</div>'; return; }
+    el.innerHTML = rows.filter(r => !r.index.startsWith('.')).map(row => `
+      <div class="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
+        <div>
+          <span class="text-slate-100 font-medium">${row.index}</span>
+          <span class="tag ml-2" style="background:${{green:'#16a34a', yellow:'#d97706', red:'#dc2626'}[row.health] || '#475569'}">${row.health}</span>
+        </div>
+        <div class="text-xs text-slate-400 flex items-center gap-3">
+          <span>${row['docs.count']} docs</span>
+          <span>${row['store.size']}</span>
+          <span>${row.pri}p / ${row.rep}r</span>
+          <button onclick="deleteIndex('${row.index}')" class="text-red-400 hover:text-red-300">delete</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="text-red-400">failed to load</div>';
+  }
+}
+async function deleteIndex(name) {
+  if (!confirm(`Delete index ${name}? This is permanent.`)) return;
+  const r = await fetch(API + '/indices/' + name, { method: 'DELETE' });
+  if (r.ok) loadIndices();
+}
+document.getElementById('refresh-indices').addEventListener('click', loadIndices);
+loadIndices();
+
+// -------- upload --------
+document.getElementById('upload-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const r = await fetch(API + '/documents/upload', { method: 'POST', body: fd });
+  const data = await r.json();
+  appendLog(r.ok
+    ? `↑ uploaded ${fd.get('file').name} -> id=${data.id} (${data.size_bytes} bytes)`
+    : `✗ error: ${JSON.stringify(data)}`);
+});
+
+// -------- index JSON doc --------
+document.getElementById('doc-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  let metadata = {};
+  try { metadata = JSON.parse(fd.get('metadata') || '{}'); }
+  catch { appendLog('✗ metadata is not valid JSON'); return; }
+
+  const r = await fetch(API + '/documents?index=' + encodeURIComponent(fd.get('index')), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: fd.get('title'), content: fd.get('content'), metadata }),
+  });
+  const data = await r.json();
+  appendLog(r.ok ? `+ indexed '${fd.get('title')}' -> id=${data.id}` : `✗ error: ${JSON.stringify(data)}`);
+});
+
+function appendLog(msg) {
+  const log = document.getElementById('load-log');
+  const ts = new Date().toLocaleTimeString();
+  const placeholder = log.querySelector('.text-slate-600');
+  if (placeholder) placeholder.remove();
+  log.insertAdjacentHTML('beforeend',
+    `<div class="text-slate-200"><span class="text-slate-500">${ts}</span> ${msg}</div>`);
+  log.scrollTop = log.scrollHeight;
+}
+
+// -------- search --------
+document.getElementById('search-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  runSearch(new FormData(e.target));
+});
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const f = document.getElementById('search-form');
+    f.q.value = c.dataset.q;
+    f.field.value = c.dataset.field;
+    f.keyword.value = c.dataset.keyword;
+    runSearch(new FormData(f));
+  });
+});
+async function runSearch(fd) {
+  const params = new URLSearchParams();
+  ['q','field','keyword','index'].forEach(k => { if (fd.get(k)) params.set(k, fd.get(k)); });
+  const r = await fetch(API + '/search?' + params.toString());
+  const data = await r.json();
+  const results = document.getElementById('search-results');
+  const stats = document.getElementById('search-stats');
+
+  if (!r.ok) {
+    stats.textContent = '';
+    results.innerHTML = `<div class="card p-5 text-red-400 mono text-sm">${data.detail || JSON.stringify(data)}</div>`;
+    return;
+  }
+
+  stats.textContent = `${data.total} hits · ${data.took_ms}ms`;
+  if (!data.hits.length) {
+    results.innerHTML = `<div class="card p-5 text-slate-500 text-sm">No matches.</div>`;
+    return;
+  }
+
+  results.innerHTML = data.hits.map(h => {
+    const hl = (h.highlight && (h.highlight.content || h.highlight.title) || []).join(' … ');
+    const body = hl || (h.source.content || '').slice(0, 280);
+    const meta = Object.entries(h.source)
+      .filter(([k]) => !['title','content','ingested_at','filename'].includes(k))
+      .map(([k, v]) => `<span class="tag mono">${k}: ${Array.isArray(v) ? v.join(',') : v}</span>`)
+      .join(' ');
+    return `
+      <div class="card p-5">
+        <div class="flex justify-between items-start gap-3">
+          <h4 class="font-semibold text-slate-100">${h.source.title || '(no title)'}</h4>
+          <span class="mono text-xs text-blue-400">score ${h.score?.toFixed(2)}</span>
+        </div>
+        <p class="mt-2 text-sm text-slate-300 highlight">${body}</p>
+        <div class="mt-3 flex flex-wrap gap-2 items-center text-xs">
+          <span class="mono text-slate-500">id ${h.id.slice(0,8)}…</span>
+          ${meta}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// -------- shards view --------
+let autoRefreshTimer;
+async function loadShards() {
+  const r = await fetch(API + '/cluster/shards');
+  const rows = await r.json();
+  // group by index
+  const byIndex = {};
+  rows.forEach(s => {
+    if (s.index.startsWith('.')) return;
+    (byIndex[s.index] ||= []).push(s);
+  });
+  const grid = document.getElementById('shards-grid');
+  if (!Object.keys(byIndex).length) {
+    grid.innerHTML = `<div class="card p-5 text-slate-500 text-sm">No user indices yet. Create one in Tab ①.</div>`;
+    return;
+  }
+  grid.innerHTML = Object.entries(byIndex).map(([idx, shards]) => `
+    <div class="card">
+      <div class="card-hdr px-5 py-3 flex justify-between items-center">
+        <h3 class="font-semibold text-sm mono">${idx}</h3>
+        <span class="text-xs text-slate-400">${shards.length} shards</span>
+      </div>
+      <div class="p-5 space-y-1.5 text-xs mono">
+        ${shards.sort((a,b)=>a.shard-b.shard||a.prirep.localeCompare(b.prirep)).map(s => `
+          <div class="flex items-center justify-between py-1 px-2 rounded"
+               style="background:${s.state==='STARTED' ? 'rgba(34,197,94,.08)' : s.state==='UNASSIGNED' ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.12)'}">
+            <div class="flex items-center gap-3">
+              <span class="w-1.5 h-1.5 rounded-full"
+                    style="background:${s.state==='STARTED'?'#22c55e':s.state==='UNASSIGNED'?'#ef4444':'#f59e0b'}"></span>
+              <span class="text-slate-300">shard-${s.shard}</span>
+              <span class="${s.prirep==='p'?'text-amber-400':'text-blue-400'}">${s.prirep==='p'?'PRIMARY':'replica'}</span>
+            </div>
+            <div class="flex gap-4 text-slate-400">
+              <span>${s.docs || 0} docs</span>
+              <span class="text-slate-500">→</span>
+              <span class="text-slate-200">${s.node || '— unassigned —'}</span>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+document.getElementById('refresh-shards').addEventListener('click', loadShards);
+document.getElementById('auto-refresh').addEventListener('change', e => {
+  clearInterval(autoRefreshTimer);
+  if (e.target.checked) autoRefreshTimer = setInterval(loadShards, 3000);
+});
+autoRefreshTimer = setInterval(loadShards, 3000);
+
+document.getElementById('apply-settings').addEventListener('click', async () => {
+  const idx = document.getElementById('settings-index').value;
+  const reps = +document.getElementById('settings-replicas').value;
+  const r = await fetch(API + `/indices/${idx}/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replicas: reps }),
+  });
+  const data = await r.json();
+  showModal(r.ok ? 'Settings updated' : 'Error', JSON.stringify(data, null, 2));
+  loadShards();
+});
+
+// -------- stress test (failover tab) --------
+document.getElementById('stress-index').addEventListener('click', async () => {
+  const log = document.getElementById('stress-log');
+  log.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const t0 = performance.now();
+    try {
+      const r = await fetch(API + '/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `stress-test-${i}`,
+          content: `Document ${i} indexed at ${new Date().toISOString()}`,
+          metadata: { author: 'stress', tags: ['drill'] },
+        }),
+      });
+      const ms = (performance.now() - t0).toFixed(0);
+      const ok = r.ok;
+      log.insertAdjacentHTML('beforeend',
+        `<div class="${ok?'text-emerald-400':'text-red-400'}">${ok?'✓':'✗'} doc ${i} (${ms}ms)</div>`);
+    } catch (e) {
+      log.insertAdjacentHTML('beforeend', `<div class="text-red-400">✗ doc ${i}: ${e.message}</div>`);
+    }
+  }
+});
+
+// -------- modal helpers --------
+function showModal(title, body) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent = body;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function hideModal() { document.getElementById('modal').classList.add('hidden'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideModal(); });
+</script>
+</body>
+</html>

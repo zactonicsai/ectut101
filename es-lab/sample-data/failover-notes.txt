@@ -1,0 +1,14 @@
+Failover Behaviour in Elasticsearch
+====================================
+
+When a node drops out of the cluster, the master detects the missing
+heartbeats and marks the node as left. Any shards that were primary on
+that node are no longer available, so the cluster immediately promotes
+the corresponding replicas on the remaining nodes to primary.
+
+This is why the cluster turns yellow but not red when a single node
+goes away: yellow means 'all primaries assigned, but some replicas
+missing'. Red means 'at least one primary shard has no copy anywhere'.
+
+If you set number_of_replicas to zero, you lose this safety net.
+Any node failure becomes permanent data loss on the shards it held.

@@ -1,0 +1,17 @@
+Introduction to Shards and Replicas
+====================================
+
+An Elasticsearch index is divided into shards. Each shard is a fully
+functional Lucene index. This is the unit of parallelism and of scaling:
+when you have two shards, half your documents live in one shard and
+half in the other. A query runs against every shard and the results
+are merged by the coordinating node.
+
+Replicas are copies of shards stored on DIFFERENT nodes. Without
+replicas, losing a node means losing data. With one replica per primary,
+any single node can disappear and every document is still available on
+another node. The cluster will also promote a replica to primary
+automatically when a node leaves.
+
+Pick 2 shards as a starting point for small clusters. Pick
+replicas = 1 as the absolute minimum for any data you care about.

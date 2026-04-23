@@ -1,0 +1,138 @@
+# =============================================================================
+# Elasticsearch Learning Lab
+#
+# Two-node ES cluster (so we can demo sharding, replication, and failover)
+# + Kibana + FastAPI backend + Go failover watchdog + static HTML UI
+#
+# Bring up:   docker compose up -d
+# Tear down:  docker compose down -v   (-v also wipes ES data volumes)
+#
+# Nodes:
+#   es01  http://localhost:9200   (primary client entry)
+#   es02  http://localhost:9201   (secondary — for direct inspection)
+#   kibana        http://localhost:5601
+#   api (FastAPI) http://localhost:8000   docs at /docs
+#   ui (nginx)    http://localhost:8080
+#   watchdog logs: docker logs -f watchdog
+# =============================================================================
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Elasticsearch node 1
+  # ---------------------------------------------------------------------------
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=lab-cluster
+      - discovery.seed_hosts=es02
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false        # keep it simple for learning
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"    # low RAM for laptops
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - es01-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks: [eslab]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---------------------------------------------------------------------------
+  # Elasticsearch node 2 — gives us a real 2-node cluster for replica shards
+  # ---------------------------------------------------------------------------
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=lab-cluster
+      - discovery.seed_hosts=es01
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - es02-data:/usr/share/elasticsearch/data
+    ports:
+      - "9201:9200"
+    networks: [eslab]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # ---------------------------------------------------------------------------
+  # Kibana — visual inspector for the cluster
+  # ---------------------------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=["http://es01:9200","http://es02:9200"]
+    ports:
+      - "5601:5601"
+    networks: [eslab]
+    depends_on:
+      es01: { condition: service_healthy }
+
+  # ---------------------------------------------------------------------------
+  # FastAPI backend — owns all ES interaction for the UI
+  # ---------------------------------------------------------------------------
+  api:
+    build: ./api
+    container_name: api
+    environment:
+      - ES_NODES=http://es01:9200,http://es02:9200
+      - INDEX_NAME=documents
+    ports:
+      - "8000:8000"
+    networks: [eslab]
+    depends_on:
+      es01: { condition: service_healthy }
+      es02: { condition: service_healthy }
+
+  # ---------------------------------------------------------------------------
+  # Static UI (Tailwind HTML served by nginx)
+  # ---------------------------------------------------------------------------
+  ui:
+    image: nginx:alpine
+    container_name: ui
+    volumes:
+      - ./ui:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    networks: [eslab]
+
+  # ---------------------------------------------------------------------------
+  # Go watchdog — polls both nodes and logs failover events
+  # ---------------------------------------------------------------------------
+  watchdog:
+    build: ./go-watchdog
+    container_name: watchdog
+    environment:
+      - ES_NODES=http://es01:9200,http://es02:9200
+      - POLL_SECONDS=3
+    networks: [eslab]
+    depends_on:
+      es01: { condition: service_healthy }
+
+volumes:
+  es01-data:
+  es02-data:
+
+networks:
+  eslab:
+    driver: bridge
